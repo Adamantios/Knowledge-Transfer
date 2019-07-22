@@ -34,3 +34,19 @@ def distillation_loss(teacher_logits: np.ndarray, student_logits: np.ndarray, te
     y_student = softmax(student_logits / temperature)
     loss = categorical_crossentropy(y_teacher, y_student)
     return loss + supervised_loss(y_teacher, y_student, lambda_const)
+
+
+def pkt_loss(y_true: Tensor, y_pred: Tensor) -> Tensor:
+    # Calculate the cosine similarities.
+    # TODO check if .T is the same as .transpose(0, 1).
+    y_true = dot((y_true, y_true.transpose(0, 1)), l2_normalize=True)
+    y_pred = dot((y_pred, y_pred.transpose(0, 1)), l2_normalize=True)
+
+    # Transform them into probabilities.
+    y_true = y_true / sum(y_true, dim=1, keepdim=True)
+    y_pred = y_pred / sum(y_pred, dim=1, keepdim=True)
+
+    # Calculate the KL-divergence.
+    loss = kullback_leibler_divergence(y_true, y_pred)
+
+    return loss
