@@ -1,11 +1,12 @@
-import numpy as np
 from tensorflow import Tensor
 from tensorflow.python import constant
-from tensorflow.python.keras.losses import categorical_crossentropy
+from tensorflow.python.keras.backend import dot, sum
+from tensorflow.python.keras.losses import categorical_crossentropy, kullback_leibler_divergence
+from tensorflow.python.ops.math_ops import divide
 from tensorflow.python.ops.nn_ops import softmax
 
 
-def supervised_loss(y_true: np.ndarray, y_pred: np.ndarray, lambda_const: float) -> Tensor:
+def supervised_loss(y_true: Tensor, y_pred: Tensor, lambda_const: float) -> Tensor:
     """
     Calculates the hard targets log-loss.
     :param y_true: the true labels.
@@ -19,7 +20,7 @@ def supervised_loss(y_true: np.ndarray, y_pred: np.ndarray, lambda_const: float)
         return constant(0)
 
 
-def distillation_loss(teacher_logits: np.ndarray, student_logits: np.ndarray, temperature: float,
+def distillation_loss(teacher_logits: Tensor, student_logits: Tensor, temperature: float,
                       lambda_const: float) -> Tensor:
     """
     Calculates the Distillation Loss between two networks logits.
@@ -30,8 +31,8 @@ def distillation_loss(teacher_logits: np.ndarray, student_logits: np.ndarray, te
     :param lambda_const: the importance weight of the supervised loss.
     :return: the distillation loss.
     """
-    y_teacher = softmax(teacher_logits / temperature)
-    y_student = softmax(student_logits / temperature)
+    y_teacher = softmax(divide(teacher_logits, temperature))
+    y_student = softmax(divide(student_logits, temperature))
     loss = categorical_crossentropy(y_teacher, y_student)
     return loss + supervised_loss(y_teacher, y_student, lambda_const)
 
