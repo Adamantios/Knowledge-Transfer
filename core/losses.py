@@ -1,10 +1,33 @@
-from typing import Callable
+from typing import Callable, Tuple
 
 from tensorflow import Tensor
 from tensorflow.python.keras.backend import dot, sum, identity
 from tensorflow.python.keras.losses import categorical_crossentropy, kullback_leibler_divergence
-from tensorflow.python.ops.math_ops import divide
+from tensorflow.python.ops.math_ops import divide, multiply, add
 from tensorflow.python.ops.nn_ops import softmax
+
+LossType = Callable[[Tensor, Tensor], Tensor]
+
+
+def _split_targets(y_true: Tensor, y_pred: Tensor, split_point: int) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+    """
+    Split concatenated hard targets and logits.
+
+    :param y_true: tensor with the true labels.
+    :param y_pred: tensor with the predicted labels.
+    :param split_point: the point in which to split the targets.
+    :return: the hard targets and the logits (teacher_logits, student_logits, y_true, y_pred).
+    """
+    # If no split point has been set, init logits only.
+    if split_point is None:
+        teacher_logits, student_logits = identity(y_true), identity(y_pred)
+        y_true, y_pred = None, None
+    # Otherwise, get hard labels and logits.
+    else:
+        y_true, teacher_logits = y_true[:, :split_point], y_true[:, split_point:]
+        y_pred, student_logits = y_pred[:, :split_point], y_pred[:, split_point:]
+
+    return teacher_logits, student_logits, y_true, y_pred
 
 
 def _distillation_loss_calculator(teacher_logits: Tensor, student_logits: Tensor, temperature: float,
@@ -27,12 +50,12 @@ def _distillation_loss_calculator(teacher_logits: Tensor, student_logits: Tensor
 
     # If supervised distillation is being performed, add supervised loss, multiplied by its importance weight.
     if lambda_const:
-        loss += lambda_const * categorical_crossentropy(y_true, y_pred)
+        loss = add(loss, multiply(lambda_const, categorical_crossentropy(y_true, y_pred)))
 
     return loss
 
 
-def distillation_loss(temperature: float, split_point: int, lambda_const: float) -> Callable[[Tensor, Tensor], Tensor]:
+def distillation_loss(temperature: float, split_point: int, lambda_const: float) -> LossType:
     """
     Calculates the Distillation Loss between two networks.
 
@@ -50,27 +73,19 @@ def distillation_loss(temperature: float, split_point: int, lambda_const: float)
         :param y_pred: tensor with the predicted labels.
         :return: the distillation loss.
         """
-        # If no split point has been set, init logits only.
-        if split_point is None:
-            teacher_logits, student_logits = identity(y_true), identity(y_pred)
-            y_true, y_pred = None, None
-        # Otherwise, get hard labels and logits.
-        else:
-            y_true, teacher_logits = y_true[:, :split_point], y_true[:, split_point:]
-            y_pred, student_logits = y_pred[:, :split_point], y_pred[:, split_point:]
-
+        teacher_logits, student_logits, y_true, y_pred = _split_targets(y_true, y_pred, split_point)
         return _distillation_loss_calculator(teacher_logits, student_logits, temperature, y_true, y_pred, lambda_const)
 
     return distillation
 
 
-def pkt_loss(y_teacher: Tensor, y_student: Tensor) -> Tensor:
+def _pkt_loss_calculator(y_teacher: Tensor, y_student: Tensor) -> Tensor:
     """
     Calculates the Probabilistic Knowledge Transfer Loss between two networks.
 
     :param y_teacher: the teacher's values.
     :param y_student: the student's values.
-    :return: the transfer loss.
+    :return: the probabilistic knowledge transfer loss.
     """
     # Calculate the cosine similarities.
     # TODO check if .T is the same as .transpose(0, 1).
@@ -85,3 +100,31 @@ def pkt_loss(y_teacher: Tensor, y_student: Tensor) -> Tensor:
     loss = kullback_leibler_divergence(y_teacher, y_student)
 
     return loss
+
+
+def pkt_loss(split_point: int, lambda_const: float) -> LossType:
+    """
+    Calculates the Probabilistic Knowledge Transfer Loss between two networks.
+
+    :param split_point: the point where the hard targets will be split from the soft targets.
+    Set to None if performing unsupervised knowledge transfer.
+    :param lambda_const: the importance weight of the supervised loss.
+    :return: the probabilistic knowledge transfer loss.
+    """
+
+    def pkt(y_true: Tensor, y_pred: Tensor) -> Tensor:
+        """
+        Function wrapped, in order to create a Keras Probabilistic Knowledge Transfer Loss function.
+        :param y_true: tensor with the true labels.
+        :param y_pred: tensor with the predicted labels.
+        :return: the probabilistic knowledge transfer loss.
+        """
+        teacher_logits, student_logits, y_true, y_pred = _split_targets(y_true, y_pred, split_point)
+        loss = _pkt_loss_calculator(teacher_logits, student_logits)
+
+        if lambda_const:
+            add(loss, multiply(lambda_const, _pkt_loss_calculator(y_true, y_pred)))
+
+        return loss
+
+    return pkt
