@@ -6,7 +6,7 @@ from tensorflow.python.keras.losses import categorical_crossentropy, kullback_le
 from tensorflow.python.ops.math_ops import divide, multiply, add
 from tensorflow.python.ops.nn_ops import softmax
 
-LossType = Callable[[Tensor, Tensor], Tensor]
+LossType = MetricType = Callable[[Tensor, Tensor], Tensor]
 
 
 def _split_targets(y_true: Tensor, y_pred: Tensor, hard_targets_exist: bool) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
@@ -129,3 +129,24 @@ def pkt_loss(lambda_const: float) -> LossType:
         return loss
 
     return pkt
+
+
+def kt_metric(hard_targets_exist: bool, metric: MetricType) -> MetricType:
+    """
+    Creates a Keras metric function, which splits the predictions.
+    :param hard_targets_exist: whether the hard targets exist or not.
+    :param metric: the Keras metric to adjust.
+    :return: the metric.
+    """
+
+    def wrapper(y_true: Tensor, y_pred: Tensor) -> Tensor:
+        """
+        Function wrapped, in order to create a Keras metric function, which splits the predictions.
+        :param y_true: tensor with the true labels.
+        :param y_pred: tensor with the predicted labels.
+        :return: the metric.
+        """
+        _, _, y_true, y_pred = _split_targets(y_true, y_pred, hard_targets_exist)
+        return metric(y_true, y_pred)
+
+    return wrapper
