@@ -1,4 +1,5 @@
 import logging
+import sys
 
 from core.metrics import available_losses
 
@@ -10,6 +11,6 @@ def knowledge_transfer() -> None:
 
 
 if __name__ == '__main__':
-    logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
+    logging.basicConfig(stream=sys.stderr, format='%(levelname)s: %(message)s', level=logging.DEBUG)
     logging.info('An info message!')
     knowledge_transfer()
