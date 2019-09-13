@@ -9,23 +9,26 @@ from tensorflow.python.ops.nn_ops import softmax
 LossType = Callable[[Tensor, Tensor], Tensor]
 
 
-def _split_targets(y_true: Tensor, y_pred: Tensor, split_point: int) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+def _split_targets(y_true: Tensor, y_pred: Tensor, hard_targets_exist: bool) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
     """
     Split concatenated hard targets and logits.
 
     :param y_true: tensor with the true labels.
     :param y_pred: tensor with the predicted labels.
-    :param split_point: the point in which to split the targets.
+    :param hard_targets_exist: whether the hard targets exist or not.
     :return: the hard targets and the logits (teacher_logits, student_logits, y_true, y_pred).
     """
-    # If no split point has been set, init logits only.
-    if split_point is None:
-        teacher_logits, student_logits = identity(y_true), identity(y_pred)
-        y_true, y_pred = None, None
-    # Otherwise, get hard labels and logits.
-    else:
+    if hard_targets_exist:
+        # Here we get the split point, which is half of the predicting dimension.
+        # The reason is because the network's output contains the predicted values
+        # concatenated with the predicted logits, which will always have the same dimension.
+        split_point = y_true.get_shape().as_list()[1] / 2
+        # Get hard labels and logits.
         y_true, teacher_logits = y_true[:, :split_point], y_true[:, split_point:]
         y_pred, student_logits = y_pred[:, :split_point], y_pred[:, split_point:]
+    else:
+        teacher_logits, student_logits = identity(y_true), identity(y_pred)
+        y_true, y_pred = None, None
 
     return teacher_logits, student_logits, y_true, y_pred
 
@@ -55,14 +58,13 @@ def _distillation_loss_calculator(teacher_logits: Tensor, student_logits: Tensor
     return loss
 
 
-def distillation_loss(temperature: float, split_point: int, lambda_const: float) -> LossType:
+def distillation_loss(temperature: float, lambda_const: float) -> LossType:
     """
     Calculates the Distillation Loss between two networks.
 
     :param temperature: the temperature for the softmax.
-    :param split_point: the point where the hard targets will be split from the soft targets.
-    Set to None if performing unsupervised distillation.
     :param lambda_const: the importance weight of the supervised loss.
+    Set it to 0 if you do not want to apply supervised loss.
     :return: the distillation loss.
     """
 
@@ -73,7 +75,7 @@ def distillation_loss(temperature: float, split_point: int, lambda_const: float)
         :param y_pred: tensor with the predicted labels.
         :return: the distillation loss.
         """
-        teacher_logits, student_logits, y_true, y_pred = _split_targets(y_true, y_pred, split_point)
+        teacher_logits, student_logits, y_true, y_pred = _split_targets(y_true, y_pred, bool(lambda_const))
         return _distillation_loss_calculator(teacher_logits, student_logits, temperature, y_true, y_pred, lambda_const)
 
     return distillation
@@ -102,13 +104,12 @@ def _pkt_loss_calculator(y_teacher: Tensor, y_student: Tensor) -> Tensor:
     return loss
 
 
-def pkt_loss(split_point: int, lambda_const: float) -> LossType:
+def pkt_loss(lambda_const: float) -> LossType:
     """
     Calculates the Probabilistic Knowledge Transfer Loss between two networks.
 
-    :param split_point: the point where the hard targets will be split from the soft targets.
-    Set to None if performing unsupervised knowledge transfer.
     :param lambda_const: the importance weight of the supervised loss.
+    Set it to 0 if you do not want to apply supervised loss.
     :return: the probabilistic knowledge transfer loss.
     """
 
@@ -119,7 +120,7 @@ def pkt_loss(split_point: int, lambda_const: float) -> LossType:
         :param y_pred: tensor with the predicted labels.
         :return: the probabilistic knowledge transfer loss.
         """
-        teacher_logits, student_logits, y_true, y_pred = _split_targets(y_true, y_pred, split_point)
+        teacher_logits, student_logits, y_true, y_pred = _split_targets(y_true, y_pred, bool(lambda_const))
         loss = _pkt_loss_calculator(teacher_logits, student_logits)
 
         if lambda_const:
