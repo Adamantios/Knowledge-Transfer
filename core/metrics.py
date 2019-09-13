@@ -131,6 +131,18 @@ def pkt_loss(lambda_const: float) -> LossType:
     return pkt
 
 
+available_losses = [
+    {
+        'name': 'Distillation Loss',
+        'function': distillation_loss
+    },
+    {
+        'name': 'PKT Loss',
+        'function': pkt_loss
+    }
+]
+
+
 def kt_metric(hard_targets_exist: bool, metric: MetricType) -> MetricType:
     """
     Creates a Keras metric function, which splits the predictions.
