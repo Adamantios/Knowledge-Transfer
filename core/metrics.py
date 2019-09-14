@@ -143,22 +143,22 @@ available_losses = [
 ]
 
 
-def kt_metric(hard_targets_exist: bool, metric: MetricType) -> MetricType:
+def kt_metric(hard_targets_exist: bool, metric_function: MetricType) -> MetricType:
     """
     Creates a Keras metric function, which splits the predictions.
     :param hard_targets_exist: whether the hard targets exist or not.
-    :param metric: the Keras metric to adjust.
-    :return: the metric.
+    :param metric_function: the Keras metric function to adjust.
+    :return: the metric_function.
     """
 
-    def wrapper(y_true: Tensor, y_pred: Tensor) -> Tensor:
+    def metric(y_true: Tensor, y_pred: Tensor) -> Tensor:
         """
         Function wrapped, in order to create a Keras metric function, which splits the predictions.
         :param y_true: tensor with the true labels.
         :param y_pred: tensor with the predicted labels.
-        :return: the metric.
+        :return: the metric_function.
         """
         _, _, y_true, y_pred = _split_targets(y_true, y_pred, hard_targets_exist)
-        return metric(y_true, y_pred)
+        return metric_function(y_true, y_pred)
 
-    return wrapper
+    return metric
