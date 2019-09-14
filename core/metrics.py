@@ -98,7 +98,7 @@ def _pkt_loss_calculator(y_teacher: Tensor, y_student: Tensor, y_true: Tensor, y
     """
 
     def cosine_similarity(tensor: Tensor) -> Tensor:
-        """ Calculates the cosine similarity of a 2D array. """
+        """ Calculates the cosine similarity of a 2D array, with l2 normalization. """
         return dot((tensor, tensor.T), l2_normalize=True)
 
     def to_probabilities(tensor: Tensor):
