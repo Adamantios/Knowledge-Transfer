@@ -19,7 +19,11 @@ def softmax_with_temperature(temperature: float) -> Callable[[Tensor], Tensor]:
         :param x: the input tensor.
         :return: Tensor, output of softmax transformation (all values are non-negative and sum to 1).
         """
-        return softmax(divide(x, temperature))
+        if temperature == 1:
+            result = softmax(x)
+        else:
+            result = softmax(divide(x, temperature))
+        return result
 
     return activation
 
