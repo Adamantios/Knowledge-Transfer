@@ -1,7 +1,9 @@
 from typing import Callable, Tuple
 
 from tensorflow import Tensor, identity, divide
+from tensorflow.python.keras import Model
 from tensorflow.python.keras.activations import softmax
+from tensorflow.python.keras.layers import Activation, concatenate
 
 LossType = MetricType = Callable[[Tensor, Tensor], Tensor]
 
@@ -26,6 +28,32 @@ def softmax_with_temperature(temperature: float) -> Callable[[Tensor], Tensor]:
         return result
 
     return activation
+
+
+def student_adaptation(model: Model, temperature: float, supervised: bool) -> Model:
+    """
+    Adapts a student model for distillation.
+
+    :param model: the model to be adapted for distillation.
+    :param temperature: the temperature for the distillation process.
+    :param supervised: whether the network should output supervised information too.
+    :return: the adapted Model.
+    """
+    # Remove softmax.
+    model.layers.pop()
+    logits = model.layers[-1].output
+
+    # Soft probabilities.
+    probabilities_t = Activation(softmax_with_temperature(temperature))(logits)
+
+    if supervised:
+        # Hard probabilities.
+        probabilities = Activation('softmax')(logits)
+        outputs = concatenate([probabilities, probabilities_t])
+    else:
+        outputs = probabilities_t
+
+    return Model(model.input, outputs)
 
 
 def split_targets(y_true: Tensor, y_pred: Tensor, hard_targets_exist: bool) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
