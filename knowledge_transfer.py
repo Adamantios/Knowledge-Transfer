@@ -1,7 +1,7 @@
 import logging
 import sys
 
-from core.metrics import available_losses
+from core.losses import available_losses
 
 
 def knowledge_transfer() -> None:

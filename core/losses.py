@@ -1,37 +1,11 @@
 from itertools import combinations_with_replacement
-from typing import Callable, Tuple
 
 from tensorflow import Tensor, zeros
-from tensorflow.python.keras.backend import dot, sum, identity
+from tensorflow.python.keras.backend import dot, sum
 from tensorflow.python.keras.losses import categorical_crossentropy, kullback_leibler_divergence
-from tensorflow.python.ops.math_ops import divide, multiply, add
-from tensorflow.python.ops.nn_ops import softmax
+from tensorflow.python.ops.math_ops import multiply, add
 
-LossType = MetricType = Callable[[Tensor, Tensor], Tensor]
-
-
-def _split_targets(y_true: Tensor, y_pred: Tensor, hard_targets_exist: bool) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
-    """
-    Split concatenated hard targets and logits.
-
-    :param y_true: tensor with the true labels.
-    :param y_pred: tensor with the predicted labels.
-    :param hard_targets_exist: whether the hard targets exist or not.
-    :return: the hard targets and the logits (teacher_logits, student_logits, y_true, y_pred).
-    """
-    if hard_targets_exist:
-        # Here we get the split point, which is half of the predicting dimension.
-        # The reason is because the network's output contains the predicted values
-        # concatenated with the predicted logits, which will always have the same dimension.
-        split_point = y_true.get_shape().as_list()[1] / 2
-        # Get hard labels and logits.
-        y_true, teacher_logits = y_true[:, :split_point], y_true[:, split_point:]
-        y_pred, student_logits = y_pred[:, :split_point], y_pred[:, split_point:]
-    else:
-        teacher_logits, student_logits = identity(y_true), identity(y_pred)
-        y_true, y_pred = None, None
-
-    return teacher_logits, student_logits, y_true, y_pred
+from core.adaptation import LossType, split_targets, softmax_with_temperature
 
 
 def _distillation_loss_calculator(teacher_logits: Tensor, student_logits: Tensor, temperature: float,
@@ -49,7 +23,7 @@ def _distillation_loss_calculator(teacher_logits: Tensor, student_logits: Tensor
     :return: the distillation loss.
     """
     # Apply softmax with temperature to the teacher's logits.
-    y_teacher = softmax(divide(teacher_logits, temperature))
+    y_teacher = softmax_with_temperature(temperature)(teacher_logits)
     # Calculate log-loss.
     loss = categorical_crossentropy(y_teacher, student_logits)
 
@@ -77,7 +51,7 @@ def distillation_loss(temperature: float, lambda_const: float) -> LossType:
         :param y_pred: tensor with the predicted labels.
         :return: the distillation loss.
         """
-        teacher_logits, student_logits, y_true, y_pred = _split_targets(y_true, y_pred, bool(lambda_const))
+        teacher_logits, student_logits, y_true, y_pred = split_targets(y_true, y_pred, bool(lambda_const))
         return _distillation_loss_calculator(teacher_logits, student_logits, temperature, y_true, y_pred, lambda_const)
 
     return distillation
@@ -145,7 +119,7 @@ def pkt_loss(lambda_const: float) -> LossType:
         :param y_pred: tensor with the predicted labels.
         :return: the probabilistic knowledge transfer loss.
         """
-        teacher_logits, student_logits, y_true, y_pred = _split_targets(y_true, y_pred, bool(lambda_const))
+        teacher_logits, student_logits, y_true, y_pred = split_targets(y_true, y_pred, bool(lambda_const))
         return _pkt_loss_calculator(teacher_logits, student_logits, y_true, y_pred, lambda_const)
 
     return pkt
@@ -161,24 +135,3 @@ available_losses = [
         'function': pkt_loss
     }
 ]
-
-
-def kt_metric(hard_targets_exist: bool, metric_function: MetricType) -> MetricType:
-    """
-    Creates a Keras metric function, which splits the predictions.
-    :param hard_targets_exist: whether the hard targets exist or not.
-    :param metric_function: the Keras metric function to adjust.
-    :return: the metric_function.
-    """
-
-    def metric(y_true: Tensor, y_pred: Tensor) -> Tensor:
-        """
-        Function wrapped, in order to create a Keras metric function, which splits the predictions.
-        :param y_true: tensor with the true labels.
-        :param y_pred: tensor with the predicted labels.
-        :return: the metric_function.
-        """
-        _, _, y_true, y_pred = _split_targets(y_true, y_pred, hard_targets_exist)
-        return metric_function(y_true, y_pred)
-
-    return metric
