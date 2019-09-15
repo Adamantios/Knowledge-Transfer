@@ -45,6 +45,9 @@ def student_adaptation(model: Model, temperature: float, supervised: bool) -> Mo
     :param supervised: whether the network should output supervised information too.
     :return: the adapted Model.
     """
+    if not supervised and temperature == 1:
+        return model
+
     # Remove softmax.
     model.layers.pop()
     logits = model.layers[-1].output
