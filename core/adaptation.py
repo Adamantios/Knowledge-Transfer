@@ -1,4 +1,5 @@
-from typing import Callable, Tuple
+from enum import Enum, auto
+from typing import Callable, Tuple, Optional
 
 from tensorflow import Tensor, identity, divide
 from tensorflow.python.keras import Model
@@ -6,6 +7,11 @@ from tensorflow.python.keras.activations import softmax
 from tensorflow.python.keras.layers import Activation, concatenate
 
 LossType = MetricType = Callable[[Tensor, Tensor], Tensor]
+
+
+class Method(Enum):
+    DISTILLATION: auto()
+    PKT: auto()
 
 
 def softmax_with_temperature(temperature: float) -> Callable[[Tensor], Tensor]:
@@ -56,14 +62,17 @@ def student_adaptation(model: Model, temperature: float, supervised: bool) -> Mo
     return Model(model.input, outputs)
 
 
-def split_targets(y_true: Tensor, y_pred: Tensor, hard_targets_exist: bool) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+def split_targets(y_true: Tensor, y_pred: Tensor, hard_targets_exist: bool,
+                  method: Method) -> Tuple[Tensor, Tensor, Optional[Tensor], Optional[Tensor]]:
     """
-    Split concatenated hard targets and logits.
+    Split concatenated hard targets / logits and hard predictions / soft predictions.
 
     :param y_true: tensor with the true labels.
     :param y_pred: tensor with the predicted labels.
     :param hard_targets_exist: whether the hard targets exist or not.
-    :return: the hard targets and the logits (teacher_logits, student_logits, y_true, y_pred).
+    :param method: the method used to transfer the knowledge.
+    :return: the concatenated logits, soft predictions, hard targets and hard predictions
+    (teacher_logits, student_output, y_true, y_pred).
     """
     if hard_targets_exist:
         # Here we get the split point, which is half of the predicting dimension.
@@ -72,12 +81,17 @@ def split_targets(y_true: Tensor, y_pred: Tensor, hard_targets_exist: bool) -> T
         split_point = y_true.get_shape().as_list()[1] / 2
         # Get hard labels and logits.
         y_true, teacher_logits = y_true[:, :split_point], y_true[:, split_point:]
-        y_pred, student_logits = y_pred[:, :split_point], y_pred[:, split_point:]
+
+        if method == Method.DISTILLATION:
+            y_pred, student_output = y_pred[:, :split_point], y_pred[:, split_point:]
+        else:
+            student_output = identity(y_pred)
+            y_pred = None
     else:
-        teacher_logits, student_logits = identity(y_true), identity(y_pred)
+        teacher_logits, student_output = identity(y_true), identity(y_pred)
         y_true, y_pred = None, None
 
-    return teacher_logits, student_logits, y_true, y_pred
+    return teacher_logits, student_output, y_true, y_pred
 
 
 def kt_metric(hard_targets_exist: bool, metric_function: MetricType) -> MetricType:

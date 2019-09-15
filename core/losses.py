@@ -5,16 +5,16 @@ from tensorflow.python.keras.backend import dot, sum
 from tensorflow.python.keras.losses import categorical_crossentropy, kullback_leibler_divergence
 from tensorflow.python.ops.math_ops import multiply, add
 
-from core.adaptation import LossType, split_targets, softmax_with_temperature
+from core.adaptation import LossType, split_targets, softmax_with_temperature, Method
 
 
-def _distillation_loss_calculator(teacher_logits: Tensor, student_logits: Tensor, temperature: float,
+def _distillation_loss_calculator(teacher_logits: Tensor, y_student: Tensor, temperature: float,
                                   y_true: Tensor, y_pred: Tensor, lambda_const: float) -> Tensor:
     """
     Calculates the Distillation Loss between two networks.
 
     :param teacher_logits: the teacher network's logits.
-    :param student_logits: the student network's logits.
+    :param y_student: the student network's output.
     :param temperature: the temperature for the softmax.
     :param y_true: the true labels, if performing supervised distillation.
     :param y_pred: the predicted labels, if performing supervised distillation.
@@ -25,7 +25,7 @@ def _distillation_loss_calculator(teacher_logits: Tensor, student_logits: Tensor
     # Apply softmax with temperature to the teacher's logits.
     y_teacher = softmax_with_temperature(temperature)(teacher_logits)
     # Calculate log-loss.
-    loss = categorical_crossentropy(y_teacher, student_logits)
+    loss = categorical_crossentropy(y_teacher, y_student)
 
     # If supervised distillation is being performed, add supervised loss, multiplied by its importance weight.
     if lambda_const:
@@ -51,21 +51,20 @@ def distillation_loss(temperature: float, lambda_const: float) -> LossType:
         :param y_pred: tensor with the predicted labels.
         :return: the distillation loss.
         """
-        teacher_logits, student_logits, y_true, y_pred = split_targets(y_true, y_pred, bool(lambda_const))
-        return _distillation_loss_calculator(teacher_logits, student_logits, temperature, y_true, y_pred, lambda_const)
+        teacher_logits, student_output, y_true, y_pred = split_targets(y_true, y_pred, bool(lambda_const),
+                                                                       Method.DISTILLATION)
+        return _distillation_loss_calculator(teacher_logits, student_output, temperature, y_true, y_pred, lambda_const)
 
     return distillation
 
 
-def _pkt_loss_calculator(y_teacher: Tensor, y_student: Tensor, y_true: Tensor, y_pred: Tensor,
-                         lambda_const: float) -> Tensor:
+def _pkt_loss_calculator(y_teacher: Tensor, y_student: Tensor, y_true: Tensor, lambda_const: float) -> Tensor:
     """
     Calculates the Probabilistic Knowledge Transfer Loss between two networks.
 
     :param y_teacher: the teacher's values.
     :param y_student: the student's values.
     :param y_true: the true labels, if performing supervised distillation.
-    :param y_pred: the predicted labels, if performing supervised distillation.
     :param lambda_const: the importance weight of the supervised loss.
     Set it to 0 if you do not want to apply supervised loss.
     :return: the probabilistic knowledge transfer loss.
@@ -83,7 +82,7 @@ def _pkt_loss_calculator(y_teacher: Tensor, y_student: Tensor, y_true: Tensor, y
     teacher_similarity, student_similarity = to_probabilities(teacher_similarity), to_probabilities(student_similarity)
     loss = kullback_leibler_divergence(teacher_similarity, student_similarity)
 
-    # If supervised distillation is being performed.
+    # If supervised transfer is being performed.
     if lambda_const:
         # Initialize symmetric supervised similarity matrix targets.
         target_similarity = zeros(y_true.shape[0], y_true.shape[0])
@@ -93,12 +92,10 @@ def _pkt_loss_calculator(y_teacher: Tensor, y_student: Tensor, y_true: Tensor, y
             if y_true[i] == y_true[j]:
                 target_similarity[i, j] = target_similarity[j, i] = 1
 
-        predicted_similarity = cosine_similarity(y_pred)
         target_similarity = to_probabilities(target_similarity)
-        predicted_similarity = to_probabilities(predicted_similarity)
 
         # Add supervised loss, multiplied by its importance weight.
-        add(loss, multiply(lambda_const, kullback_leibler_divergence(target_similarity, predicted_similarity)))
+        add(loss, multiply(lambda_const, kullback_leibler_divergence(target_similarity, student_similarity)))
 
     return loss
 
@@ -119,8 +116,8 @@ def pkt_loss(lambda_const: float) -> LossType:
         :param y_pred: tensor with the predicted labels.
         :return: the probabilistic knowledge transfer loss.
         """
-        teacher_logits, student_logits, y_true, y_pred = split_targets(y_true, y_pred, bool(lambda_const))
-        return _pkt_loss_calculator(teacher_logits, student_logits, y_true, y_pred, lambda_const)
+        teacher_output, student_output, y_true, y_pred = split_targets(y_true, y_pred, bool(lambda_const), Method.PKT)
+        return _pkt_loss_calculator(teacher_output, student_output, y_true, lambda_const)
 
     return pkt
 
