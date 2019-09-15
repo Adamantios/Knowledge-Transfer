@@ -97,11 +97,12 @@ def split_targets(y_true: Tensor, y_pred: Tensor, hard_targets_exist: bool,
     return teacher_logits, student_output, y_true, y_pred
 
 
-def kt_metric(hard_targets_exist: bool, metric_function: MetricType) -> MetricType:
+def kt_metric(hard_targets_exist: bool, metric_function: MetricType, method: Method) -> MetricType:
     """
-    Creates a Keras metric function, which splits the predictions.
+    Creates a Keras metric function, which splits the predictions, to be used for evaluation.
     :param hard_targets_exist: whether the hard targets exist or not.
     :param metric_function: the Keras metric function to adjust.
+    :param method: the method used to transfer the knowledge.
     :return: the metric_function.
     """
 
@@ -112,7 +113,7 @@ def kt_metric(hard_targets_exist: bool, metric_function: MetricType) -> MetricTy
         :param y_pred: tensor with the predicted labels.
         :return: the metric_function.
         """
-        _, _, y_true, y_pred = split_targets(y_true, y_pred, hard_targets_exist)
+        _, _, y_true, y_pred = split_targets(y_true, y_pred, hard_targets_exist, method)
         return metric_function(y_true, y_pred)
 
     return metric
