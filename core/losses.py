@@ -122,7 +122,7 @@ def pkt_loss(lambda_const: float) -> LossType:
     return pkt
 
 
-available_losses = [
+available_methods = [
     {
         'name': 'Distillation Loss',
         'function': distillation_loss
