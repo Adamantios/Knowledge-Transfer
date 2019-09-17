@@ -8,7 +8,7 @@ from tensorflow.python.keras.layers import Conv2D, MaxPooling2D, Dropout, Flatte
 from tensorflow.python.keras.regularizers import l2
 
 
-def tiny_network_1(n_classes: int, input_shape=None, input_tensor=None,
+def cifar10_tiny_1(n_classes: int, input_shape=None, input_tensor=None,
                    weights_path: Union[None, str] = None) -> Model:
     """
     Defines a cifar10 tiny network.
