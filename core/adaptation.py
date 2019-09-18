@@ -6,7 +6,7 @@ from tensorflow.python.keras import Model
 from tensorflow.python.keras.activations import softmax
 from tensorflow.python.keras.layers import Activation, concatenate
 
-LossType = MetricType = Callable[[Tensor, Tensor], Tensor]
+MetricType = Callable[[Tensor, Tensor], Tensor]
 
 
 class Method(Enum):

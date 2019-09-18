@@ -5,7 +5,9 @@ from tensorflow.python.keras.backend import dot, sum
 from tensorflow.python.keras.losses import categorical_crossentropy, kullback_leibler_divergence
 from tensorflow.python.ops.math_ops import multiply, add
 
-from core.adaptation import LossType, split_targets, softmax_with_temperature, Method
+from core.adaptation import MetricType, split_targets, softmax_with_temperature, Method
+
+LossType = MetricType
 
 
 def _distillation_loss_calculator(teacher_logits: Tensor, y_student: Tensor, temperature: float,

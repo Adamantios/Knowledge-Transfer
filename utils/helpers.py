@@ -1,3 +1,4 @@
+import logging
 from os import makedirs
 from os.path import dirname, exists, isfile
 from typing import Union, Tuple, Any
@@ -11,6 +12,17 @@ from tensorflow.python.keras.optimizers import adam, rmsprop, sgd, adagrad, adad
 from student_networks.cifar10_tiny_1 import cifar10_tiny_1
 
 OptimizerType = Union[adam, rmsprop, sgd, adagrad, adadelta, adamax]
+
+
+def setup_logger(debug: bool) -> None:
+    """
+    Sets the program's logger up.
+
+    :param debug: Whether the logger should be set in debugging mode.
+    """
+    # Set up logger.
+    level = logging.DEBUG if debug else logging.INFO
+    logging.basicConfig(format='%(levelname)s: %(message)s', level=level)
 
 
 def load_data(dataset: str) -> [Tuple[ndarray, ndarray], Tuple[Any, ndarray], int]:
@@ -150,7 +162,7 @@ def plot_results(histories: list, save_folder: str):
     :param save_folder:
     :return:
     """
-    pass
+    # TODO
 
 
 def create_path(filepath: str) -> None:
