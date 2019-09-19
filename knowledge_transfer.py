@@ -1,4 +1,6 @@
+import logging
 from os.path import join
+from typing import Tuple
 
 from numpy import ndarray
 from tensorflow.python.keras import Model
@@ -21,6 +23,19 @@ def check_args() -> None:
         raise ValueError('You cannot set both clip norm and clip value.')
 
 
+def get_teacher_outputs() -> Tuple[ndarray, ndarray]:
+    """
+    Calculates and returns the teacher's outputs.
+
+    :return: array with the teacher's predictions.
+    """
+    logging.info('Getting teacher\'s predictions...')
+    train = teacher.predict(x_train, evaluation_batch_size, verbosity)
+    test = teacher.predict(x_test, evaluation_batch_size, verbosity)
+
+    return train, test
+
+
 def knowledge_transfer(loss: LossType) -> History:
     """
     Perform KT using a certain loss.
@@ -41,12 +56,12 @@ def knowledge_transfer(loss: LossType) -> History:
         datagen = ImageDataGenerator(rotation_range=10, zoom_range=0.1, width_shift_range=0.1, height_shift_range=0.1)
         datagen.fit(x_train)
         # Fit network.
-        history = student.fit_generator(datagen.flow(x_train, y_train, batch_size=batch_size), epochs=epochs,
+        history = student.fit_generator(datagen.flow(x_train, y_teacher_train, batch_size=batch_size), epochs=epochs,
                                         steps_per_epoch=x_train.shape[0] // batch_size,
-                                        validation_data=(x_test, y_test),
+                                        validation_data=(x_test, y_teacher_test),
                                         callbacks=callbacks_list)
     else:
-        history = student.fit(x_train, y_train, epochs=epochs, validation_data=(x_test, y_test),
+        history = student.fit(x_train, y_teacher_train, epochs=epochs, validation_data=(x_test, y_teacher_test),
                               callbacks=callbacks_list)
 
     return history
@@ -122,6 +137,9 @@ if __name__ == '__main__':
     x_train, x_test = preprocess_data(dataset, x_train, x_test)
     y_train = to_categorical(y_train, n_classes)
     y_test = to_categorical(y_test, n_classes)
+
+    # Get teacher outputs.
+    y_teacher_train, y_teacher_test = get_teacher_outputs()
 
     # Create student model.
     student = create_student(student_name, x_train.shape[1:], n_classes, start_weights)
