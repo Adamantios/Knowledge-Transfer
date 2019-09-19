@@ -9,7 +9,7 @@ from tensorflow.python.keras.utils import to_categorical
 
 from core.losses import LossType, distillation_loss, pkt_loss
 from utils.helpers import initialize_optimizer, load_data, preprocess_data, create_student, init_callbacks, \
-    plot_results, setup_logger
+    plot_results, setup_logger, OptimizerType
 from utils.parser import create_parser
 
 
@@ -19,16 +19,19 @@ def check_args() -> None:
         raise ValueError('You cannot set both clip norm and clip value.')
 
 
-def knowledge_transfer(loss: LossType) -> History:
+def knowledge_transfer(optimizer: OptimizerType, loss: LossType) -> History:
     """
-    Perform KT using a certain loss.
+    Performs KT.
 
+    :param optimizer: the optimizer to be used for the KT.
     :param loss: the KT loss to be used.
     :return: Keras History object.
     """
-    # Initialize optimizer and compile student.
-    optimizer = initialize_optimizer(optimizer_name, learning_rate, decay, beta1, beta2, rho, momentum,
-                                     clip_norm, clip_value)
+    # Create student model.
+    logging.info('Creating student...')
+    student = create_student(student_name, x_train.shape[1:], n_classes, start_weights)
+
+    # Compile student.
     student.compile(
         optimizer=optimizer, loss=loss,
         metrics=[accuracy, categorical_crossentropy]
@@ -54,6 +57,8 @@ def evaluate_results(results: list) -> None:
 
 def compare_kt_methods() -> None:
     """ Compares all the available KT methods. """
+    optimizer = initialize_optimizer(optimizer_name, learning_rate, decay, beta1, beta2, rho, momentum,
+                                     clip_norm, clip_value)
     methods = [
         {
             'name': 'Knowledge Distillation',
@@ -70,7 +75,7 @@ def compare_kt_methods() -> None:
         logging.info('Performing {}...'.format(method['name']))
         results.append({
             'method': method['name'],
-            'results': knowledge_transfer(method['loss']).history
+            'results': knowledge_transfer(optimizer, method['loss']).history
         })
 
     logging.info('Evaluating results...')
@@ -125,10 +130,6 @@ if __name__ == '__main__':
     logging.info('Getting teacher\'s predictions...')
     y_teacher_train = teacher.predict(x_train, evaluation_batch_size, verbosity)
     y_teacher_test = teacher.predict(x_test, evaluation_batch_size, verbosity)
-
-    # Create student model.
-    logging.info('Creating student...')
-    student = create_student(student_name, x_train.shape[1:], n_classes, start_weights)
 
     # Initialize callbacks list.
     logging.info('Configuring...')
