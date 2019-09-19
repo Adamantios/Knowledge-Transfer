@@ -9,7 +9,7 @@ from tensorflow.python.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.python.keras.saving import load_model
 from tensorflow.python.keras.utils import to_categorical
 
-from core.losses import available_methods, LossType
+from core.losses import LossType, distillation_loss, pkt_loss
 from utils.helpers import initialize_optimizer, load_data, preprocess_data, create_student, init_callbacks, \
     plot_results, setup_logger
 from utils.parser import create_parser
@@ -65,9 +65,16 @@ def evaluate_results(results: list) -> None:
 
 def compare_kt_methods() -> None:
     """ Compares all the available KT methods. """
-    results = []
-    for method in available_methods:
-        results.append({'method': method['name'], 'results': knowledge_transfer(method['function']).history})
+    results = [
+        {
+            'method': 'Knowledge Distillation',
+            'results': knowledge_transfer(distillation_loss(temperature, lambda_supervised)).history
+        },
+        {
+            'method': 'Probabilistic Knowledge Transfer',
+            'results': knowledge_transfer(pkt_loss(lambda_supervised)).history
+        }
+    ]
 
     evaluate_results(results)
 

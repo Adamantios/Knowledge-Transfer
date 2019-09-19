@@ -122,15 +122,3 @@ def pkt_loss(lambda_const: float) -> LossType:
         return _pkt_loss_calculator(teacher_output, student_output, y_true, lambda_const)
 
     return pkt
-
-
-available_methods = [
-    {
-        'name': 'Distillation Loss',
-        'function': distillation_loss
-    },
-    {
-        'name': 'PKT Loss',
-        'function': pkt_loss
-    }
-]
