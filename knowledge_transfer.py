@@ -1,8 +1,6 @@
 import logging
 from os.path import join
-from typing import Tuple
 
-from numpy import ndarray
 from tensorflow.python.keras import Model
 from tensorflow.python.keras.callbacks import History
 from tensorflow.python.keras.losses import categorical_crossentropy
@@ -21,19 +19,6 @@ def check_args() -> None:
     """ Checks the input arguments. """
     if clip_norm is not None and clip_value is not None:
         raise ValueError('You cannot set both clip norm and clip value.')
-
-
-def get_teacher_outputs() -> Tuple[ndarray, ndarray]:
-    """
-    Calculates and returns the teacher's outputs.
-
-    :return: array with the teacher's predictions.
-    """
-    logging.info('Getting teacher\'s predictions...')
-    train = teacher.predict(x_train, evaluation_batch_size, verbosity)
-    test = teacher.predict(x_test, evaluation_batch_size, verbosity)
-
-    return train, test
 
 
 def knowledge_transfer(loss: LossType) -> History:
@@ -139,7 +124,9 @@ if __name__ == '__main__':
     y_test = to_categorical(y_test, n_classes)
 
     # Get teacher outputs.
-    y_teacher_train, y_teacher_test = get_teacher_outputs()
+    logging.info('Getting teacher\'s predictions...')
+    y_teacher_train = teacher.predict(x_train, evaluation_batch_size, verbosity)
+    y_teacher_test = teacher.predict(x_test, evaluation_batch_size, verbosity)
 
     # Create student model.
     student = create_student(student_name, x_train.shape[1:], n_classes, start_weights)
