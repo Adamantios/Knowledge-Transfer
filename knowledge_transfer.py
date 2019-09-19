@@ -91,6 +91,7 @@ if __name__ == '__main__':
     start_weights: str = args.start_weights
     temperature: float = args.temperature
     lambda_supervised: float = args.lambda_supervised
+    save_students_mode: str = args.save_students
     save_results: bool = not args.omit_results
     out_folder: str = args.out_folder
     debug: bool = args.debug

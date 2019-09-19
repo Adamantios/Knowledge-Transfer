@@ -6,6 +6,8 @@ STUDENT_CHOICES = {'cifar10_tiny_1'}
 DATASET_CHOICES = {'cifar10', 'cifar100'}
 TEMPERATURE = 0.1
 LAMBDA_SUPERVISED = 0.1
+SAVE_STUDENTS = 'best'
+SAVE_STUDENTS_CHOICES = 'all', 'best', 'none'
 SAVE_RESULTS = True
 OUT_FOLDER_NAME = 'out'
 OPTIMIZER = 'rmsprop'
@@ -49,6 +51,9 @@ def create_parser() -> ArgumentParser:
                         help='The temperature for the distillation (default %(default)s).')
     parser.add_argument('-l', '--lambda_supervised', default=LAMBDA_SUPERVISED, required=False, type=float,
                         help='The lambda value for the supervised term (default %(default)s).')
+    parser.add_argument('-s', '--save_students', type=str.lower, default=SAVE_STUDENTS, required=False,
+                        choices=SAVE_STUDENTS_CHOICES,
+                        help='The save mode for the final student networks. (default %(default)s).')
     parser.add_argument('-or', '--omit_results', default=not SAVE_RESULTS, required=False, action='store_true',
                         help='Whether the KT comparison results should not be saved (default %(default)s).')
     parser.add_argument('-o', '--out_folder', default=OUT_FOLDER_NAME, required=False, type=str,
