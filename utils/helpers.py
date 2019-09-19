@@ -6,7 +6,7 @@ from typing import Union, Tuple, Any
 from numpy import ndarray
 from tensorflow.keras.datasets import cifar10, cifar100
 from tensorflow.python.keras import Model
-from tensorflow.python.keras.callbacks import ModelCheckpoint, ReduceLROnPlateau, EarlyStopping
+from tensorflow.python.keras.callbacks import ReduceLROnPlateau, EarlyStopping
 from tensorflow.python.keras.optimizers import adam, rmsprop, sgd, adagrad, adadelta, adamax
 
 from student_networks.cifar10_tiny_1 import cifar10_tiny_1
@@ -117,13 +117,11 @@ def initialize_optimizer(optimizer_name: str, learning_rate: float = None, decay
     return opt
 
 
-def init_callbacks(save_checkpoint: bool, checkpoint_filepath: str, lr_patience: int, lr_decay: float, lr_min: float,
-                   early_stopping_patience: int, verbosity: int) -> []:
+def init_callbacks(lr_patience: int, lr_decay: float, lr_min: float, early_stopping_patience: int,
+                   verbosity: int) -> []:
     """
     Initializes callbacks for the training procedure.
 
-    :param save_checkpoint: whether a checkpoint should be saved.
-    :param checkpoint_filepath: the filepath to the checkpoint.
     :param lr_patience: the number of epochs to wait before decaying the learning rate. Set it to 0 to ignore decaying.
     :param lr_decay: the decay of the learning rate.
     :param lr_min: the minimum learning rate to be reached.
@@ -132,14 +130,6 @@ def init_callbacks(save_checkpoint: bool, checkpoint_filepath: str, lr_patience:
     :return: the callbacks list.
     """
     callbacks = []
-    if save_checkpoint:
-        # Create path for the file.
-        create_path(checkpoint_filepath)
-
-        # Create checkpoint.
-        checkpoint = ModelCheckpoint(checkpoint_filepath, monitor='val_acc', verbose=verbosity,
-                                     save_best_only=True, mode='max')
-        callbacks.append(checkpoint)
 
     if lr_decay > 0 or lr_patience == 0:
         learning_rate_reduction = ReduceLROnPlateau(monitor='val_acc', patience=lr_patience, verbose=verbosity,

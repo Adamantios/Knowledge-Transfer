@@ -1,11 +1,9 @@
 import logging
-from os.path import join
 
 from tensorflow.python.keras import Model
 from tensorflow.python.keras.callbacks import History
 from tensorflow.python.keras.losses import categorical_crossentropy
 from tensorflow.python.keras.metrics import accuracy
-from tensorflow.python.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.python.keras.saving import load_model
 from tensorflow.python.keras.utils import to_categorical
 
@@ -36,17 +34,9 @@ def knowledge_transfer(loss: LossType) -> History:
         metrics=[accuracy, categorical_crossentropy]
     )
 
-    if augment_data:
-        # Generate batches of tensor image data with real-time data augmentation.
-        datagen = ImageDataGenerator(rotation_range=10, zoom_range=0.1, width_shift_range=0.1, height_shift_range=0.1)
-        datagen.fit(x_train)
-        # Fit network.
-        history = student.fit_generator(datagen.flow(x_train, y_teacher_train, batch_size=batch_size), epochs=epochs,
-                                        steps_per_epoch=x_train.shape[0] // batch_size,
-                                        validation_data=(x_test, y_teacher_test), callbacks=callbacks_list)
-    else:
-        history = student.fit(x_train, y_teacher_train, epochs=epochs, validation_data=(x_test, y_teacher_test),
-                              callbacks=callbacks_list)
+    # Fit student.
+    history = student.fit(x_train, y_teacher_train, epochs=epochs, validation_data=(x_test, y_teacher_test),
+                          callbacks=callbacks_list)
 
     return history
 
@@ -94,14 +84,12 @@ if __name__ == '__main__':
     student_name: str = args.student
     dataset: str = args.dataset
     start_weights: str = args.start_weights
-    save_checkpoint: bool = not args.omit_checkpoint
     temperature: float = args.temperature
     lambda_supervised: float = args.lambda_supervised
     save_results: bool = not args.omit_results
     out_folder: str = args.out_folder
     debug: bool = args.debug
     optimizer_name: str = args.optimizer
-    augment_data: bool = not args.no_augmentation
     learning_rate: float = args.learning_rate
     lr_patience: int = args.learning_rate_patience
     lr_decay: float = args.learning_rate_decay
@@ -144,9 +132,7 @@ if __name__ == '__main__':
 
     # Initialize callbacks list.
     logging.info('Configuring...')
-    checkpoint_filepath = join(out_folder, 'checkpoint.h5')
-    callbacks_list = init_callbacks(save_checkpoint, checkpoint_filepath, lr_patience, lr_decay, lr_min,
-                                    early_stopping_patience, verbosity)
+    callbacks_list = init_callbacks(lr_patience, lr_decay, lr_min, early_stopping_patience, verbosity)
 
     # Run comparison.
     logging.info('Starting KT methods comparison...')

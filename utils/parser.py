@@ -4,14 +4,12 @@ from argparse import ArgumentParser
 
 STUDENT_CHOICES = {'cifar10_tiny_1'}
 DATASET_CHOICES = {'cifar10', 'cifar100'}
-SAVE_CHECKPOINT = True
 TEMPERATURE = 0.1
 LAMBDA_SUPERVISED = 0.1
 SAVE_RESULTS = True
 OUT_FOLDER_NAME = 'out'
 OPTIMIZER = 'rmsprop'
 OPTIMIZER_CHOICES = 'adam', 'rmsprop', 'sgd', 'adagrad', 'adadelta', 'adamax'
-AUGMENT = True
 LEARNING_RATE = 1E-3
 LR_PATIENCE = 8
 LR_DECAY = 0.1
@@ -47,8 +45,6 @@ def create_parser() -> ArgumentParser:
     parser.add_argument('dataset', type=str, choices=DATASET_CHOICES, help='The name of the dataset to be used.')
     parser.add_argument('-w', '--start_weights', type=str, required=False,
                         help='Filepath containing existing weights to initialize the model.')
-    parser.add_argument('-oc', '--omit_checkpoint', default=not SAVE_CHECKPOINT, required=False, action='store_true',
-                        help='Whether the best weights checkpoint should not be saved (default %(default)s).')
     parser.add_argument('-t', '--temperature', default=TEMPERATURE, required=False, type=float,
                         help='The temperature for the distillation (default %(default)s).')
     parser.add_argument('-l', '--lambda_supervised', default=LAMBDA_SUPERVISED, required=False, type=float,
@@ -60,9 +56,6 @@ def create_parser() -> ArgumentParser:
     parser.add_argument('-o', '--optimizer', type=str.lower, default=OPTIMIZER, required=False,
                         choices=OPTIMIZER_CHOICES,
                         help='The optimizer to be used. (default %(default)s).')
-    parser.add_argument('-na', '--no_augmentation', default=not AUGMENT, required=False, action='store_true',
-                        help='Whether the data should not be augmented. '
-                             'Augmentation is suggested only for image data. (default %(default)s).')
     parser.add_argument('-lr', '--learning_rate', type=float, default=LEARNING_RATE, required=False,
                         help='The learning rate for the optimizer (default %(default)s).')
     parser.add_argument('-lrp', '--learning_rate_patience', type=int, default=LR_PATIENCE, required=False,
