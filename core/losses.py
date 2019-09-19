@@ -1,3 +1,4 @@
+from enum import Enum, auto
 from itertools import combinations_with_replacement
 
 from tensorflow import Tensor, zeros
@@ -5,9 +6,14 @@ from tensorflow.python.keras.backend import dot, sum
 from tensorflow.python.keras.losses import categorical_crossentropy, kullback_leibler_divergence
 from tensorflow.python.ops.math_ops import multiply, add
 
-from core.adaptation import MetricType, split_targets, softmax_with_temperature, Method
+from core.adaptation import MetricType, split_targets, softmax_with_temperature
 
 LossType = MetricType
+
+
+class Method(Enum):
+    DISTILLATION: auto()
+    PKT: auto()
 
 
 def _distillation_loss_calculator(teacher_logits: Tensor, y_student: Tensor, temperature: float,
@@ -53,8 +59,7 @@ def distillation_loss(temperature: float, lambda_const: float) -> LossType:
         :param y_pred: tensor with the predicted labels.
         :return: the distillation loss.
         """
-        teacher_logits, student_output, y_true, y_pred = split_targets(y_true, y_pred, bool(lambda_const),
-                                                                       Method.DISTILLATION)
+        teacher_logits, student_output, y_true, y_pred = split_targets(y_true, y_pred, Method.DISTILLATION)
         return _distillation_loss_calculator(teacher_logits, student_output, temperature, y_true, y_pred, lambda_const)
 
     return distillation
@@ -118,7 +123,7 @@ def pkt_loss(lambda_const: float) -> LossType:
         :param y_pred: tensor with the predicted labels.
         :return: the probabilistic knowledge transfer loss.
         """
-        teacher_output, student_output, y_true, y_pred = split_targets(y_true, y_pred, bool(lambda_const), Method.PKT)
+        teacher_output, student_output, y_true, _ = split_targets(y_true, y_pred, Method.PKT)
         return _pkt_loss_calculator(teacher_output, student_output, y_true, lambda_const)
 
     return pkt

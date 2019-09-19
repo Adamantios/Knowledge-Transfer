@@ -1,5 +1,6 @@
 import logging
 
+from numpy import concatenate
 from tensorflow.python.keras import Model
 from tensorflow.python.keras.callbacks import History
 from tensorflow.python.keras.losses import categorical_crossentropy
@@ -7,6 +8,7 @@ from tensorflow.python.keras.metrics import accuracy
 from tensorflow.python.keras.saving import load_model
 from tensorflow.python.keras.utils import to_categorical
 
+from core.adaptation import Method, kt_metric, kd_student_adaptation
 from core.losses import LossType, distillation_loss, pkt_loss
 from utils.helpers import initialize_optimizer, load_data, preprocess_data, create_student, init_callbacks, \
     plot_results, setup_logger, OptimizerType
@@ -19,11 +21,12 @@ def check_args() -> None:
         raise ValueError('You cannot set both clip norm and clip value.')
 
 
-def knowledge_transfer(optimizer: OptimizerType, loss: LossType) -> History:
+def knowledge_transfer(optimizer: OptimizerType, method: Method, loss: LossType) -> History:
     """
     Performs KT.
 
     :param optimizer: the optimizer to be used for the KT.
+    :param method: the method used fot the KT.
     :param loss: the KT loss to be used.
     :return: Keras History object.
     """
@@ -31,14 +34,18 @@ def knowledge_transfer(optimizer: OptimizerType, loss: LossType) -> History:
     logging.info('Creating student...')
     student = create_student(student_name, x_train.shape[1:], n_classes, start_weights)
 
+    if method == Method.DISTILLATION:
+        student = kd_student_adaptation(student, temperature)
+
+    logging.info('Configuring...')
     # Compile student.
     student.compile(
         optimizer=optimizer, loss=loss,
-        metrics=[accuracy, categorical_crossentropy]
+        metrics=[kt_metric(accuracy, method), kt_metric(categorical_crossentropy, method)]
     )
 
     # Fit student.
-    history = student.fit(x_train, y_teacher_train, epochs=epochs, validation_data=(x_test, y_teacher_test),
+    history = student.fit(x_train, y_train_concat, epochs=epochs, validation_data=(x_test, y_test_concat),
                           callbacks=callbacks_list)
 
     return history
@@ -62,10 +69,12 @@ def compare_kt_methods() -> None:
     methods = [
         {
             'name': 'Knowledge Distillation',
+            'method': Method.DISTILLATION,
             'loss': distillation_loss(temperature, lambda_supervised)
         },
         {
             'name': 'Probabilistic Knowledge Transfer',
+            'method': Method.PKT,
             'loss': pkt_loss(lambda_supervised)
         }
     ]
@@ -75,7 +84,7 @@ def compare_kt_methods() -> None:
         logging.info('Performing {}...'.format(method['name']))
         results.append({
             'method': method['name'],
-            'results': knowledge_transfer(optimizer, method['loss']).history
+            'results': knowledge_transfer(optimizer, method['method'], method['loss']).history
         })
 
     logging.info('Evaluating results...')
@@ -131,6 +140,10 @@ if __name__ == '__main__':
     logging.info('Getting teacher\'s predictions...')
     y_teacher_train = teacher.predict(x_train, evaluation_batch_size, verbosity)
     y_teacher_test = teacher.predict(x_test, evaluation_batch_size, verbosity)
+
+    # Concatenate teacher's outputs with true labels.
+    y_train_concat = concatenate([y_train, y_teacher_train])
+    y_test_concat = concatenate([y_test, y_teacher_test])
 
     # Initialize callbacks list.
     logging.info('Configuring...')
