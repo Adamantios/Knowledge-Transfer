@@ -1,5 +1,7 @@
 from os.path import join
 
+from numpy import ndarray
+from tensorflow.python.keras import Model
 from tensorflow.python.keras.callbacks import History
 from tensorflow.python.keras.losses import categorical_crossentropy
 from tensorflow.python.keras.metrics import accuracy
@@ -73,33 +75,34 @@ def compare_kt_methods() -> None:
 if __name__ == '__main__':
     # Get arguments.
     args = create_parser().parse_args()
-    teacher = load_model(args.teacher)
-    student_name = args.student
-    dataset = args.dataset
-    start_weights = args.start_weights
-    save_checkpoint = not args.omit_checkpoint
-    lambda_supervised = args.lambda_supervised
-    save_results = args.save_results
-    out_folder = args.out_folder
-    debug = args.debug
-    optimizer_name = args.optimizer
-    augment_data = not args.no_augmentation
-    learning_rate = args.learning_rate
-    lr_patience = args.learning_rate_patience
-    lr_decay = args.learning_rate_decay
-    lr_min = args.learning_rate_min
-    early_stopping_patience = args.early_stopping_patience
-    clip_norm = args.clip_norm
-    clip_value = args.clip_value
-    beta1 = args.beta1
-    beta2 = args.beta2
-    rho = args.rho
-    momentum = args.momentum
-    decay = args.decay
-    batch_size = args.batch_size
-    evaluation_batch_size = args.evaluation_batch_size
-    epochs = args.epochs
-    verbosity = args.verbosity
+    teacher: Model = load_model(args.teacher, compile=False)
+    student_name: str = args.student
+    dataset: str = args.dataset
+    start_weights: str = args.start_weights
+    save_checkpoint: bool = not args.omit_checkpoint
+    temperature: float = args.temperature
+    lambda_supervised: float = args.lambda_supervised
+    save_results: bool = not args.omit_results
+    out_folder: str = args.out_folder
+    debug: bool = args.debug
+    optimizer_name: str = args.optimizer
+    augment_data: bool = not args.no_augmentation
+    learning_rate: float = args.learning_rate
+    lr_patience: int = args.learning_rate_patience
+    lr_decay: float = args.learning_rate_decay
+    lr_min: float = args.learning_rate_min
+    early_stopping_patience: int = args.early_stopping_patience
+    clip_norm: float = args.clip_norm
+    clip_value: float = args.clip_value
+    beta1: float = args.beta1
+    beta2: float = args.beta2
+    rho: float = args.rho
+    momentum: float = args.momentum
+    decay: float = args.decay
+    batch_size: int = args.batch_size
+    evaluation_batch_size: int = args.evaluation_batch_size
+    epochs: int = args.epochs
+    verbosity: int = args.verbosity
     check_args()
 
     # Set logger up.

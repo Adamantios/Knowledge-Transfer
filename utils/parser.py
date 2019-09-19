@@ -5,6 +5,7 @@ from argparse import ArgumentParser
 STUDENT_CHOICES = {'cifar10_tiny_1'}
 DATASET_CHOICES = {'cifar10', 'cifar100'}
 SAVE_CHECKPOINT = True
+TEMPERATURE = 0.1
 LAMBDA_SUPERVISED = 0.1
 SAVE_RESULTS = True
 OUT_FOLDER_NAME = 'out'
@@ -48,7 +49,9 @@ def create_parser() -> ArgumentParser:
                         help='Filepath containing existing weights to initialize the model.')
     parser.add_argument('-oc', '--omit_checkpoint', default=not SAVE_CHECKPOINT, required=False, action='store_true',
                         help='Whether the best weights checkpoint should not be saved (default %(default)s).')
-    parser.add_argument('-l', '--lambda_supervised', default=LAMBDA_SUPERVISED, required=False, type=str,
+    parser.add_argument('-t', '--temperature', default=TEMPERATURE, required=False, type=float,
+                        help='The temperature for the distillation (default %(default)s).')
+    parser.add_argument('-l', '--lambda_supervised', default=LAMBDA_SUPERVISED, required=False, type=float,
                         help='The lambda value for the supervised term (default %(default)s).')
     parser.add_argument('-or', '--omit_results', default=not SAVE_RESULTS, required=False, action='store_true',
                         help='Whether the KT comparison results should not be saved (default %(default)s).')
