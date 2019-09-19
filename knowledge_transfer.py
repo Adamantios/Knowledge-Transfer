@@ -43,8 +43,7 @@ def knowledge_transfer(loss: LossType) -> History:
         # Fit network.
         history = student.fit_generator(datagen.flow(x_train, y_teacher_train, batch_size=batch_size), epochs=epochs,
                                         steps_per_epoch=x_train.shape[0] // batch_size,
-                                        validation_data=(x_test, y_teacher_test),
-                                        callbacks=callbacks_list)
+                                        validation_data=(x_test, y_teacher_test), callbacks=callbacks_list)
     else:
         history = student.fit(x_train, y_teacher_train, epochs=epochs, validation_data=(x_test, y_teacher_test),
                               callbacks=callbacks_list)
@@ -65,17 +64,26 @@ def evaluate_results(results: list) -> None:
 
 def compare_kt_methods() -> None:
     """ Compares all the available KT methods. """
-    results = [
+    methods = [
         {
-            'method': 'Knowledge Distillation',
-            'results': knowledge_transfer(distillation_loss(temperature, lambda_supervised)).history
+            'name': 'Knowledge Distillation',
+            'loss': distillation_loss(temperature, lambda_supervised)
         },
         {
-            'method': 'Probabilistic Knowledge Transfer',
-            'results': knowledge_transfer(pkt_loss(lambda_supervised)).history
+            'name': 'Probabilistic Knowledge Transfer',
+            'loss': pkt_loss(lambda_supervised)
         }
     ]
+    results = []
 
+    for method in methods:
+        logging.info('Performing {}...'.format(method['name']))
+        results.append({
+            'method': method['name'],
+            'results': knowledge_transfer(method['loss']).history
+        })
+
+    logging.info('Evaluating results...')
     evaluate_results(results)
 
 
@@ -116,25 +124,31 @@ if __name__ == '__main__':
     setup_logger(debug)
 
     # Load dataset.
+    logging.info('Loading dataset...')
     ((x_train, y_train), (x_test, y_test)), n_classes = load_data(dataset)
 
     # Preprocess data.
+    logging.info('Preprocessing data...')
     x_train, x_test = preprocess_data(dataset, x_train, x_test)
     y_train = to_categorical(y_train, n_classes)
     y_test = to_categorical(y_test, n_classes)
 
-    # Get teacher outputs.
+    # Get teacher's outputs.
     logging.info('Getting teacher\'s predictions...')
     y_teacher_train = teacher.predict(x_train, evaluation_batch_size, verbosity)
     y_teacher_test = teacher.predict(x_test, evaluation_batch_size, verbosity)
 
     # Create student model.
+    logging.info('Creating student...')
     student = create_student(student_name, x_train.shape[1:], n_classes, start_weights)
 
     # Initialize callbacks list.
+    logging.info('Configuring...')
     checkpoint_filepath = join(out_folder, 'checkpoint.h5')
     callbacks_list = init_callbacks(save_checkpoint, checkpoint_filepath, lr_patience, lr_decay, lr_min,
                                     early_stopping_patience, verbosity)
 
     # Run comparison.
+    logging.info('Starting KT methods comparison...')
     compare_kt_methods()
+    logging.info('Finished!')
