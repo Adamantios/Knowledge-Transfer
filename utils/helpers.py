@@ -1,13 +1,14 @@
 import logging
 from os import makedirs
-from os.path import dirname, exists, isfile
-from typing import Union, Tuple, Any
+from os.path import dirname, exists, isfile, join
+from typing import Union, Tuple, Any, Dict, List
 
 from numpy import ndarray
 from tensorflow.keras.datasets import cifar10, cifar100
 from tensorflow.python.keras import Model
 from tensorflow.python.keras.callbacks import ReduceLROnPlateau, EarlyStopping
 from tensorflow.python.keras.optimizers import adam, rmsprop, sgd, adagrad, adadelta, adamax
+from tensorflow.python.keras.saving import save_model
 
 from student_networks.cifar10_tiny_1 import cifar10_tiny_1
 
@@ -20,7 +21,6 @@ def setup_logger(debug: bool) -> None:
 
     :param debug: Whether the logger should be set in debugging mode.
     """
-    # Set up logger.
     level = logging.DEBUG if debug else logging.INFO
     logging.basicConfig(format='%(levelname)s: %(message)s', level=level)
 
@@ -144,17 +144,6 @@ def init_callbacks(lr_patience: int, lr_decay: float, lr_min: float, early_stopp
     return callbacks
 
 
-def plot_results(histories: list, save_folder: str):
-    """
-    Plots the KT results.
-
-    :param histories: the history for each one of the KT method applied.
-    :param save_folder:
-    :return:
-    """
-    # TODO
-
-
 def create_path(filepath: str) -> None:
     """
     Creates a path to a file, if it does not exist.
@@ -167,3 +156,68 @@ def create_path(filepath: str) -> None:
     # Create directory if it does not exist
     if not exists(directory):
         makedirs(directory)
+
+
+def save_students(save_students_mode: str, results: list, out_folder: str) -> None:
+    """
+    Saves the student network(s).
+
+    :param save_students_mode: the save mode.
+    :param results: the KT results.
+    :param out_folder: the folder in which the student networks will be saved.
+    """
+    if save_students_mode == 'all':
+        for result in results:
+            name = join(out_folder, result['method'], '_model.h5')
+            save_model(result['network'], name)
+            logging.info('Student network has been saved as {}...'.format(name))
+
+    elif save_students_mode == 'best':
+        best = -1
+        best_model = None
+        for result in results:
+            if result['network']['acc'] > best:
+                best = result['network']
+                best_model = result['model']
+
+        name = join(out_folder, 'best_model.h5')
+        save_model(best_model, )
+        logging.info('The best student network has been saved as {}...'.format(name))
+
+
+def _get_model_results(scores: list, metrics_names: list) -> str:
+    """
+    Makes a model's results string.
+
+    :param scores: the model's scores.
+    :param metrics_names: the model's metrics names.
+    :return: the results string.
+    """
+    results = ''
+    for i in range(len(scores)):
+        results += "{}: {}\n".format(metrics_names[i], scores[1])
+
+    return results
+
+
+def log_results(results: List[Dict], save_results: bool, out_folder: str) -> None:
+    """
+    Prints the KT comparison results string.
+
+    :param results: the comparison results list.
+    :param save_results: whether the results should be saved to a file.
+    :param out_folder: the out folder for the results.
+    """
+    # Show final results.
+    final_results = 'Final results: \n'
+    for result in results:
+        final_results += result['method'] + ': \n'
+        final_results = _get_model_results(result['evaluation'], result['network'].metrics_names)
+    logging.info(final_results)
+
+    # Save final results.
+    if save_results:
+        results_filepath = out_folder + 'final_results.log'
+        logging.log(msg=final_results, filename=results_filepath, filemode='w', format='%(message)s',
+                    level=logging.INFO)
+        logging.info('Evaluation results have been saved as {}.\n'.format(results_filepath))

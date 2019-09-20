@@ -1,4 +1,5 @@
 import logging
+from typing import Tuple, Union, List
 
 from numpy import concatenate
 from tensorflow.python.keras import Model
@@ -11,8 +12,9 @@ from tensorflow.python.keras.utils import to_categorical
 from core.adaptation import Method, kt_metric, kd_student_adaptation
 from core.losses import LossType, distillation_loss, pkt_loss
 from utils.helpers import initialize_optimizer, load_data, preprocess_data, create_student, init_callbacks, \
-    plot_results, setup_logger, OptimizerType
+    setup_logger, OptimizerType, save_students, log_results
 from utils.parser import create_parser
+from utils.plotter import plot_results
 
 
 def check_args() -> None:
@@ -21,7 +23,8 @@ def check_args() -> None:
         raise ValueError('You cannot set both clip norm and clip value.')
 
 
-def knowledge_transfer(optimizer: OptimizerType, method: Method, loss: LossType) -> History:
+def knowledge_transfer(optimizer: OptimizerType, method: Method, loss: LossType) -> \
+        Tuple[Model, History, Union[None, float, List[float]]]:
     """
     Performs KT.
 
@@ -48,7 +51,11 @@ def knowledge_transfer(optimizer: OptimizerType, method: Method, loss: LossType)
     history = student.fit(x_train, y_train_concat, epochs=epochs, validation_data=(x_test, y_test_concat),
                           callbacks=callbacks_list)
 
-    return history
+    # Evaluating results.
+    logging.info('Evaluating student\'s results.')
+    evaluation = student.evaluate(x_test, y_test, evaluation_batch_size, verbosity)
+
+    return student, history, evaluation
 
 
 def evaluate_results(results: list) -> None:
@@ -57,9 +64,22 @@ def evaluate_results(results: list) -> None:
 
     :param results: the results list.
     """
-    # Plot results.
+    # Get baseline.
+    logging.info('Calculating baseline.')
+    baseline = teacher.evaluate(x_test, y_test, evaluation_batch_size, verbosity)
+    # Add baseline to the results list.
+    results.append({
+        'method': 'Teacher',
+        'network': teacher,
+        'history': None,
+        'evaluation': baseline
+    })
+    # Plot training information.
     save_folder = out_folder if save_results else None
     plot_results(results, save_folder)
+
+    # Log results.
+    log_results(results, save_results, out_folder)
 
 
 def compare_kt_methods() -> None:
@@ -82,10 +102,18 @@ def compare_kt_methods() -> None:
 
     for method in methods:
         logging.info('Performing {}...'.format(method['name']))
+        student, history, evaluation = knowledge_transfer(optimizer, method['method'], method['loss'])
         results.append({
             'method': method['name'],
-            'results': knowledge_transfer(optimizer, method['method'], method['loss']).history
+            'network': student,
+            'history': history.history,
+            'evaluation': evaluation
         })
+
+    logging.debug(results)
+
+    logging.info('Saving student network(s)...')
+    save_students(save_students_mode, results, out_folder)
 
     logging.info('Evaluating results...')
     evaluate_results(results)
