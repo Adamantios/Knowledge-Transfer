@@ -1,4 +1,3 @@
-from enum import Enum, auto
 from itertools import combinations_with_replacement
 
 from tensorflow import Tensor, zeros
@@ -6,14 +5,9 @@ from tensorflow.python.keras.backend import dot, sum
 from tensorflow.python.keras.losses import categorical_crossentropy, kullback_leibler_divergence
 from tensorflow.python.ops.math_ops import multiply, add
 
-from core.adaptation import MetricType, split_targets, softmax_with_temperature
+from core.adaptation import MetricType, split_targets, softmax_with_temperature, Method
 
 LossType = MetricType
-
-
-class Method(Enum):
-    DISTILLATION: auto()
-    PKT: auto()
 
 
 def _distillation_loss_calculator(teacher_logits: Tensor, y_student: Tensor, temperature: float,
