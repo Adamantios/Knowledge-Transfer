@@ -56,7 +56,7 @@ def create_parser() -> ArgumentParser:
                         help='The save mode for the final student networks. (default %(default)s).')
     parser.add_argument('-or', '--omit_results', default=not SAVE_RESULTS, required=False, action='store_true',
                         help='Whether the KT comparison results should not be saved (default %(default)s).')
-    parser.add_argument('-o', '--out_folder', default=OUT_FOLDER_NAME, required=False, type=str,
+    parser.add_argument('-out', '--out_folder', default=OUT_FOLDER_NAME, required=False, type=str,
                         help='Path to the folder where the outputs will be stored (default %(default)s).')
     parser.add_argument('-o', '--optimizer', type=str.lower, default=OPTIMIZER, required=False,
                         choices=OPTIMIZER_CHOICES,
@@ -96,6 +96,6 @@ def create_parser() -> ArgumentParser:
                         help='The number of epochs to train the network (default %(default)s).')
     parser.add_argument('-v', '--verbosity', type=int, default=VERBOSITY, required=False,
                         help='The verbosity for the optimization procedure (default %(default)s).')
-    parser.add_argument('-d', '--debug', default=DEBUG, required=False, action='store_true',
+    parser.add_argument('--debug', default=DEBUG, required=False, action='store_true',
                         help='Whether debug mode should be enabled (default %(default)s).')
     return parser
