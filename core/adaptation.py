@@ -2,6 +2,7 @@ from enum import Enum, auto
 from typing import Callable, Tuple
 
 from tensorflow import Tensor, divide, identity
+from tensorflow.python import shape, int32, cast
 from tensorflow.python.keras import Model
 from tensorflow.python.keras.activations import softmax
 from tensorflow.python.keras.layers import Activation, concatenate
@@ -75,7 +76,7 @@ def split_targets(y_true: Tensor, y_pred: Tensor, method: Method) -> Tuple[Tenso
     # Here we get the split point, which is half of the predicting dimension.
     # The reason is because the network's output contains the predicted values
     # concatenated with the predicted logits, which will always have the same dimension.
-    split_point = y_true.get_shape().as_list()[1] / 2
+    split_point = cast(divide(shape(y_true)[1], 2), int32)
     # Get hard labels and logits.
     y_true, teacher_logits = y_true[:, :split_point], y_true[:, split_point:]
 
