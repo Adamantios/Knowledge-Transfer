@@ -10,8 +10,8 @@ MetricType = Callable[[Tensor, Tensor], Tensor]
 
 
 class Method(Enum):
-    DISTILLATION: auto()
-    PKT: auto()
+    DISTILLATION = auto()
+    PKT = auto()
 
 
 def softmax_with_temperature(temperature: float) -> Callable[[Tensor], Tensor]:
