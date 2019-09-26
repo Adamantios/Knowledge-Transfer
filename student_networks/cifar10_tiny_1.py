@@ -1,4 +1,3 @@
-import logging
 from os.path import isfile
 from typing import Union
 
