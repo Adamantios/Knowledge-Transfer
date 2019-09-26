@@ -48,7 +48,8 @@ def knowledge_transfer(optimizer: OptimizerType, method: Method, loss: LossType)
     )
 
     # Fit student.
-    history = student.fit(x_train, y_train_concat, epochs=epochs, validation_data=(x_test, y_test_concat),
+    history = student.fit(x_train, y_train_concat, batch_size=batch_size, epochs=epochs,
+                          validation_data=(x_test, y_test_concat),
                           callbacks=callbacks_list)
 
     # Evaluating results.
