@@ -74,7 +74,7 @@ def create_student(student_name: str, input_shape: tuple, n_classes: int, start_
     else:
         raise ValueError('Unrecognised student model!')
 
-    if start_weights != '' or start_weights is not None:
+    if start_weights != '' and start_weights is not None:
         if isfile(start_weights):
             return model_generator(input_shape=input_shape, weights_path=start_weights, n_classes=n_classes)
         else:
