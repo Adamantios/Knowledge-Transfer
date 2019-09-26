@@ -171,8 +171,8 @@ if __name__ == '__main__':
     y_teacher_test = teacher.predict(x_test, evaluation_batch_size, verbosity)
 
     # Concatenate teacher's outputs with true labels.
-    y_train_concat = concatenate([y_train, y_teacher_train])
-    y_test_concat = concatenate([y_test, y_teacher_test])
+    y_train_concat = concatenate([y_train, y_teacher_train], axis=1)
+    y_test_concat = concatenate([y_test, y_teacher_test], axis=1)
 
     # Initialize callbacks list.
     logging.info('Configuring...')
