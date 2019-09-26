@@ -65,6 +65,4 @@ def cifar10_tiny_1(n_classes: int, input_shape=None, input_tensor=None, weights_
             raise FileNotFoundError('Network weights file {} does not exist.'.format(weights_path))
         model.load_weights(weights_path, True)
 
-    logging.debug('Network summary:\n{}'.format(model.summary()))
-
     return model
