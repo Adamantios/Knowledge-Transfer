@@ -37,15 +37,20 @@ def knowledge_transfer(optimizer: OptimizerType, method: Method, loss: LossType)
     logging.info('Creating student...')
     student = create_student(student_name, x_train.shape[1:], n_classes, start_weights)
 
+    # Adapt student for distillation if necessary.
     if method == Method.DISTILLATION:
         student = kd_student_adaptation(student, temperature)
 
     logging.info('Configuring...')
+
+    # Create KT metrics and give them names.
+    kt_acc = kt_metric(accuracy, method)
+    kt_acc.__name__ = 'accuracy'
+    kt_crossentropy = kt_metric(categorical_crossentropy, method)
+    kt_crossentropy.__name__ = 'categorical_crossentropy'
+
     # Compile student.
-    student.compile(
-        optimizer=optimizer, loss=loss,
-        metrics=[kt_metric(accuracy, method), kt_metric(categorical_crossentropy, method)]
-    )
+    student.compile(optimizer=optimizer, loss=loss, metrics=[kt_acc, kt_crossentropy])
 
     # Fit student.
     history = student.fit(x_train, y_train_concat, batch_size=batch_size, epochs=epochs,
