@@ -4,7 +4,7 @@ from typing import Union
 
 from tensorflow.python.keras import Model, Input
 from tensorflow.python.keras.engine import InputLayer
-from tensorflow.python.keras.layers import Conv2D, MaxPooling2D, Dropout, Flatten, Dense, BatchNormalization
+from tensorflow.python.keras.layers import Conv2D, MaxPooling2D, Dropout, Flatten, Dense, BatchNormalization, Activation
 from tensorflow.python.keras.regularizers import l2
 
 
@@ -54,7 +54,8 @@ def cifar10_tiny_1(n_classes: int, input_shape=None, input_tensor=None, weights_
 
     # Add top layers.
     x = Flatten()(x)
-    outputs = Dense(n_classes, activation='softmax')(x)
+    x = Dense(n_classes)(x)
+    outputs = Activation('softmax')(x)
 
     # Create model.
     model = Model(inputs, outputs, name='cifar10_tiny_1')
