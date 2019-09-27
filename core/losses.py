@@ -1,9 +1,10 @@
 from itertools import combinations_with_replacement
 
-from tensorflow import Tensor, zeros
-from tensorflow.python.keras.backend import dot, sum
+from tensorflow import Tensor, zeros, transpose
+from tensorflow.contrib.solvers.python.ops.util import dot
 from tensorflow.python.keras.losses import categorical_crossentropy, kullback_leibler_divergence
-from tensorflow.python.ops.math_ops import multiply, add
+from tensorflow.python.ops.math_ops import multiply, add, reduce_sum, divide
+from tensorflow.python.ops.nn_impl import l2_normalize
 
 from core.adaptation import MetricType, split_targets, softmax_with_temperature, Method
 
@@ -73,11 +74,12 @@ def _pkt_loss_calculator(y_teacher: Tensor, y_student: Tensor, y_true: Tensor, l
 
     def cosine_similarity(tensor: Tensor) -> Tensor:
         """ Calculates the cosine similarity of a 2D array, with l2 normalization. """
-        return dot((tensor, tensor.T), l2_normalize=True)
+        l2_normalize(tensor)
+        return dot(tensor, transpose(tensor))
 
     def to_probabilities(tensor: Tensor):
         """ Transforms a symmetric 2D array's values into probabilities. """
-        return tensor / sum(tensor, axis=1, keepdims=True)
+        return divide(tensor, reduce_sum(tensor, axis=1, keepdims=True))
 
     teacher_similarity, student_similarity = cosine_similarity(y_teacher), cosine_similarity(y_student)
     teacher_similarity, student_similarity = to_probabilities(teacher_similarity), to_probabilities(student_similarity)
