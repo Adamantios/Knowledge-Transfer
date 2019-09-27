@@ -133,12 +133,12 @@ def init_callbacks(lr_patience: int, lr_decay: float, lr_min: float, early_stopp
     callbacks = []
 
     if lr_decay > 0 or lr_patience == 0:
-        learning_rate_reduction = ReduceLROnPlateau(monitor='accuracy', patience=lr_patience, verbose=verbosity,
+        learning_rate_reduction = ReduceLROnPlateau(monitor='val_accuracy', patience=lr_patience, verbose=verbosity,
                                                     factor=lr_decay, min_lr=lr_min)
         callbacks.append(learning_rate_reduction)
 
     if early_stopping_patience > 0:
-        early_stopping = EarlyStopping(monitor='accuracy', patience=early_stopping_patience, min_delta=.002,
+        early_stopping = EarlyStopping(monitor='val_accuracy', patience=early_stopping_patience, min_delta=.002,
                                        verbose=verbosity)
         callbacks.append(early_stopping)
 
