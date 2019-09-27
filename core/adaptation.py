@@ -63,6 +63,23 @@ def kd_student_adaptation(model: Model, temperature: float) -> Model:
     return Model(model.input, outputs)
 
 
+def kd_student_rewind(model: Model) -> Model:
+    """
+    Rewinds an adapted student model for distillation, to its normal state.
+
+    :param model: the model to be rewinded.
+    :return: the normal student Model.
+    """
+    # Remove concatenated layer.
+    model.layers.pop()
+    logits = model.layers[-1].output
+
+    # Normal softmax probabilities.
+    outputs = Activation('softmax')(logits)
+
+    return Model(model.input, outputs)
+
+
 def split_targets(y_true: Tensor, y_pred: Tensor, method: Method) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
     """
     Split concatenated hard targets / logits and hard predictions / soft predictions.

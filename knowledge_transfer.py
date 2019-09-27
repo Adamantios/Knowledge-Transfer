@@ -9,7 +9,7 @@ from tensorflow.python.keras.metrics import accuracy
 from tensorflow.python.keras.saving import load_model
 from tensorflow.python.keras.utils import to_categorical
 
-from core.adaptation import Method, kt_metric, kd_student_adaptation
+from core.adaptation import Method, kt_metric, kd_student_adaptation, kd_student_rewind
 from core.losses import LossType, distillation_loss, pkt_loss
 from utils.helpers import initialize_optimizer, load_data, preprocess_data, create_student, init_callbacks, \
     setup_logger, OptimizerType, save_students, log_results, copy_model
@@ -59,6 +59,11 @@ def knowledge_transfer(optimizer: OptimizerType, method: Method, loss: LossType)
 
     # Evaluating results.
     logging.info('Evaluating student\'s results.')
+
+    # Rewind student to normal, if necessary.
+    if method == Method.DISTILLATION:
+        student = kd_student_rewind(student)
+
     evaluation = student.evaluate(x_test, y_test, evaluation_batch_size, verbosity)
 
     return copy_model(student), history, evaluation
