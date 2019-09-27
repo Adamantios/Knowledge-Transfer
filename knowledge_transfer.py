@@ -114,6 +114,10 @@ def compare_kt_methods() -> None:
     for method in methods:
         logging.info('Performing {}...'.format(method['name']))
         student, history, evaluation = knowledge_transfer(optimizer, method['method'], method['loss'])
+        # TODO model_path = os.path.join(tempfile.gettempdir(), next(tempfile._get_candidate_names()) + '.h5')
+        #  and save student model there, when we stop needing it,
+        #  because it is inefficient to have it in memory until - if ever - we need to save it.
+        #  That way, when the time comes, we will just need to move it to the out folder.
         results.append({
             'method': method['name'],
             'network': student,
