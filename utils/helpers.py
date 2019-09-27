@@ -7,6 +7,7 @@ from numpy import ndarray
 from tensorflow.keras.datasets import cifar10, cifar100
 from tensorflow.python.keras import Model
 from tensorflow.python.keras.callbacks import ReduceLROnPlateau, EarlyStopping
+from tensorflow.python.keras.models import clone_model
 from tensorflow.python.keras.optimizers import adam, rmsprop, sgd, adagrad, adadelta, adamax
 from tensorflow.python.keras.saving import save_model
 
@@ -132,12 +133,12 @@ def init_callbacks(lr_patience: int, lr_decay: float, lr_min: float, early_stopp
     callbacks = []
 
     if lr_decay > 0 or lr_patience == 0:
-        learning_rate_reduction = ReduceLROnPlateau(monitor='val_acc', patience=lr_patience, verbose=verbosity,
+        learning_rate_reduction = ReduceLROnPlateau(monitor='accuracy', patience=lr_patience, verbose=verbosity,
                                                     factor=lr_decay, min_lr=lr_min)
         callbacks.append(learning_rate_reduction)
 
     if early_stopping_patience > 0:
-        early_stopping = EarlyStopping(monitor='val_acc', patience=early_stopping_patience, min_delta=.002,
+        early_stopping = EarlyStopping(monitor='accuracy', patience=early_stopping_patience, min_delta=.002,
                                        verbose=verbosity)
         callbacks.append(early_stopping)
 
@@ -156,6 +157,21 @@ def create_path(filepath: str) -> None:
     # Create directory if it does not exist
     if not exists(directory):
         makedirs(directory)
+
+
+def copy_model(model: Model) -> Model:
+    """
+    Copies a Keras Model.
+
+    :param model: the model to be copied.
+    :return: the copied Model.
+    """
+    copy = clone_model(model)
+    copy.build(model.input_shape)
+    copy.compile(optimizer=model.optimizer, loss=model.loss, metrics=model.metrics)
+    copy.set_weights(model.get_weights())
+
+    return copy
 
 
 def save_students(save_students_mode: str, results: list, out_folder: str) -> None:

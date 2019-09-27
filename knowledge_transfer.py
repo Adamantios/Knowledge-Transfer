@@ -12,7 +12,7 @@ from tensorflow.python.keras.utils import to_categorical
 from core.adaptation import Method, kt_metric, kd_student_adaptation
 from core.losses import LossType, distillation_loss, pkt_loss
 from utils.helpers import initialize_optimizer, load_data, preprocess_data, create_student, init_callbacks, \
-    setup_logger, OptimizerType, save_students, log_results
+    setup_logger, OptimizerType, save_students, log_results, copy_model
 from utils.parser import create_parser
 from utils.plotter import plot_results
 
@@ -61,7 +61,7 @@ def knowledge_transfer(optimizer: OptimizerType, method: Method, loss: LossType)
     logging.info('Evaluating student\'s results.')
     evaluation = student.evaluate(x_test, y_test, evaluation_batch_size, verbosity)
 
-    return student, history, evaluation
+    return copy_model(student), history, evaluation
 
 
 def evaluate_results(results: list) -> None:
