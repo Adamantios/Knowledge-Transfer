@@ -224,6 +224,7 @@ def log_results(results: List[Dict], save_results: bool, out_folder: str) -> Non
     :param save_results: whether the results should be saved to a file.
     :param out_folder: the out folder for the results.
     """
+    # TODO compare teacher and student n_params.
     # Show final results.
     final_results = 'Final results: \n'
     for result in results:
