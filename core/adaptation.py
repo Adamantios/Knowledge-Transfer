@@ -67,7 +67,7 @@ def kd_student_rewind(model: Model) -> Model:
     """
     Rewinds an adapted student model for distillation, to its normal state.
 
-    :param model: the model to be rewinded.
+    :param model: the model to be rewind.
     :return: the normal student Model.
     """
     # Remove concatenated layer.
