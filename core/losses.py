@@ -88,7 +88,7 @@ def _pkt_loss_calculator(y_teacher: Tensor, y_student: Tensor, y_true: Tensor, l
     # If supervised transfer is being performed.
     if lambda_const:
         # Initialize symmetric supervised similarity matrix targets.
-        target_similarity = zeros(y_true.shape[0], y_true.shape[0])
+        target_similarity = zeros((y_true.shape[0], y_true.shape[0]))
         # Run through all the target index combinations, without duplicates.
         for i, j in combinations_with_replacement(y_true.shape[0], 2):
             # If samples have the same target, make symmetric similarity 1.
