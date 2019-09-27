@@ -5,7 +5,7 @@ from numpy import concatenate
 from tensorflow.python.keras import Model
 from tensorflow.python.keras.callbacks import History
 from tensorflow.python.keras.losses import categorical_crossentropy
-from tensorflow.python.keras.metrics import accuracy
+from tensorflow.python.keras.metrics import categorical_accuracy
 from tensorflow.python.keras.saving import load_model
 from tensorflow.python.keras.utils import to_categorical
 
@@ -44,10 +44,10 @@ def knowledge_transfer(optimizer: OptimizerType, method: Method, loss: LossType)
     logging.info('Configuring...')
 
     # Create KT metrics and give them names.
-    kt_acc = kt_metric(accuracy, method)
+    kt_acc = kt_metric(categorical_accuracy, method)
     kt_acc.__name__ = 'accuracy'
     kt_crossentropy = kt_metric(categorical_crossentropy, method)
-    kt_crossentropy.__name__ = 'categorical_crossentropy'
+    kt_crossentropy.__name__ = 'crossentropy'
 
     # Compile student.
     student.compile(optimizer=optimizer, loss=loss, metrics=[kt_acc, kt_crossentropy])
