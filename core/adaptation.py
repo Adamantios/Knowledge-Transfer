@@ -45,12 +45,11 @@ def kd_student_adaptation(model: Model, temperature: float) -> Model:
     :param temperature: the temperature for the distillation process.
     :return: the adapted Model.
     """
-    # Remove softmax.
-    model.layers.pop()
-    logits = model.layers[-1].output
+    # Get logits.
+    logits = model.layers[-2].output
 
     # Hard probabilities.
-    probabilities = Activation('softmax')(logits)
+    probabilities = softmax(logits)
 
     # Soft probabilities.
     if temperature == 1:
@@ -60,7 +59,7 @@ def kd_student_adaptation(model: Model, temperature: float) -> Model:
 
     outputs = concatenate([probabilities, probabilities_t])
 
-    return Model(model.input, outputs)
+    return Model(model.input, outputs, name=model.name)
 
 
 def kd_student_rewind(model: Model) -> Model:
@@ -70,14 +69,17 @@ def kd_student_rewind(model: Model) -> Model:
     :param model: the model to be rewind.
     :return: the normal student Model.
     """
-    # Remove concatenated layer.
-    model.layers.pop()
-    logits = model.layers[-1].output
+    # Get things we will need later.
+    optimizer, loss, metrics = model.optimizer, model.loss, model.metrics
 
-    # Normal softmax probabilities.
-    outputs = Activation('softmax')(logits)
+    # Get normal softmax probabilities only.
+    outputs = model.layers[-3].output
 
-    return Model(model.input, outputs)
+    # Create new model and compile it.
+    model = Model(model.input, outputs, name=model.name)
+    model.compile(optimizer, loss, metrics)
+
+    return model
 
 
 def split_targets(y_true: Tensor, y_pred: Tensor, method: Method) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
