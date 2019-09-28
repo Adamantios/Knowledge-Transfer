@@ -5,6 +5,7 @@ from argparse import ArgumentParser
 STUDENT_CHOICES = {'cifar10_tiny_1'}
 DATASET_CHOICES = {'cifar10', 'cifar100'}
 TEMPERATURE = 2
+# TODO have different lambdas for pkt and distillation.
 LAMBDA_SUPERVISED = 0.1
 SAVE_STUDENTS = 'best'
 SAVE_STUDENTS_CHOICES = 'all', 'best', 'none'
