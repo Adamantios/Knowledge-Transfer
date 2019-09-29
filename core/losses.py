@@ -1,6 +1,5 @@
-from itertools import combinations_with_replacement
-
-from tensorflow import Tensor, zeros, transpose
+from tensorflow import Tensor, transpose, shape
+from tensorflow.python import constant, less, while_loop, zeros
 from tensorflow.python.keras.losses import categorical_crossentropy, kullback_leibler_divergence
 from tensorflow.python.ops.math_ops import multiply, add, reduce_sum, divide, matmul
 from tensorflow.python.ops.nn_impl import l2_normalize
@@ -59,6 +58,51 @@ def distillation_loss(temperature: float, lambda_const: float) -> LossType:
     return distillation
 
 
+def _calculate_supervised_similarities(y_true) -> Tensor:
+    """
+    Calculates the target supervised similarities.
+    Performs a tensorflow nested loop, in order to compare the values of y_true for range(batch_size).
+
+    :param y_true: the y_true value.
+    :return: Tensor containing the target supervised similarities.
+    """
+    # Get the batch size.
+    batch_size = shape(y_true)[0]
+    # Initialize outer loop index.
+    i = constant(0)
+    # Initialize symmetric supervised similarity matrix targets.
+    target_similarity = zeros((batch_size, batch_size))
+
+    def outer_loop_condition(_i, _batch_size, _y_true, _target_similarity):
+        """Define outer loop condition."""
+        return less(_i, _batch_size)
+
+    def outer_loop_body(_i, _batch_size, _y_true, _target_similarity):
+        """Define outer loop body."""
+        # Initialize inner loop index.
+        j = constant(0)
+
+        def inner_loop_condition(_i, _j, _y_true, _target_similarity):
+            """Define inner loop condition."""
+            return less(_j, _batch_size)
+
+        def inner_loop_body(_i, _j, _y_true, _target_similarity):
+            """Define inner loop body."""
+            if _y_true[_i] == _y_true[_j]:
+                _target_similarity[_i, _j] = 1
+            return _i, _j + 1, _y_true, _target_similarity
+
+        # Begin inner while loop.
+        _, j, _, _target_similarity = while_loop(inner_loop_condition, inner_loop_body,
+                                                 [_i, j, _y_true, _target_similarity])
+        return _i + 1, _batch_size, _y_true, _target_similarity
+
+    # Begin outer while loop.
+    i, _, _, target_similarity = while_loop(outer_loop_condition, outer_loop_body,
+                                            [i, batch_size, y_true, target_similarity])
+    return target_similarity
+
+
 def _pkt_loss_calculator(y_teacher: Tensor, y_student: Tensor, y_true: Tensor, lambda_const: float) -> Tensor:
     """
     Calculates the Probabilistic Knowledge Transfer Loss between two networks.
@@ -86,14 +130,7 @@ def _pkt_loss_calculator(y_teacher: Tensor, y_student: Tensor, y_true: Tensor, l
 
     # If supervised transfer is being performed.
     if lambda_const:
-        # Initialize symmetric supervised similarity matrix targets.
-        target_similarity = zeros((y_true.shape[0], y_true.shape[0]))
-        # Run through all the target index combinations, without duplicates.
-        for i, j in combinations_with_replacement(y_true.shape[0], 2):
-            # If samples have the same target, make symmetric similarity 1.
-            if y_true[i] == y_true[j]:
-                target_similarity[i, j] = target_similarity[j, i] = 1
-
+        target_similarity = _calculate_supervised_similarities(y_true)
         target_similarity = to_probabilities(target_similarity)
 
         # Add supervised loss, multiplied by its importance weight.
