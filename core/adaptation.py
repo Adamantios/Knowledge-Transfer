@@ -28,9 +28,9 @@ def softmax_with_temperature(temperature: float) -> Callable[[Tensor], Tensor]:
         :return: Tensor, output of softmax transformation (all values are non-negative and sum to 1).
         """
         if temperature == 1:
-            result = Activation('softmax')(x)
+            result = Activation('softmax', name='softmax')(x)
         else:
-            result = Activation('softmax')(divide(x, temperature))
+            result = Activation('softmax', name='softmax_with_temperature')(divide(x, temperature))
         return result
 
     return activation
@@ -48,13 +48,13 @@ def kd_student_adaptation(model: Model, temperature: float) -> Model:
     logits = model.layers[-2].output
 
     # Hard probabilities.
-    probabilities = Activation('softmax')(logits)
+    probabilities = Activation('softmax', name='softmax')(logits)
 
     # Soft probabilities.
     if temperature == 1:
         probabilities_t = identity(probabilities)
     else:
-        probabilities_t = Activation(softmax_with_temperature(temperature))(logits)
+        probabilities_t = Activation(softmax_with_temperature(temperature), name='softmax_with_temperature')(logits)
 
     outputs = concatenate([probabilities, probabilities_t])
 

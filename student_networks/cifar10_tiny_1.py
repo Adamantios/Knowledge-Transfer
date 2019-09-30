@@ -54,7 +54,7 @@ def cifar10_tiny_1(n_classes: int, input_shape=None, input_tensor=None, weights_
     # Add top layers.
     x = Flatten()(x)
     x = Dense(n_classes)(x)
-    outputs = Activation('softmax')(x)
+    outputs = Activation('softmax', name='softmax')(x)
 
     # Create model.
     model = Model(inputs, outputs, name='cifar10_tiny_1')
