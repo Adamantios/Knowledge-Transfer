@@ -46,7 +46,7 @@ def plot_results(results: List[Dict], save_folder: Optional[str]) -> None:
                 ax.plot(result['evaluation'], label=result['method'], linestyle='--')
             else:
                 # Plot method's current metric results.
-                ax.plot(result['history'].values()[metric_index], label=result['method'],
+                ax.plot(list(result['history'].values())[metric_index], label=result['method'],
                         linestyle=next(linestyles_pool))
 
         ax.legend(loc='best', fontsize='large')
