@@ -214,7 +214,7 @@ def _get_model_results(scores: list, metrics_names: list) -> str:
     """
     results = ''
     for i in range(len(scores)):
-        results += "{}: {}\n".format(metrics_names[i], scores[1])
+        results += "{}: {}\n".format(metrics_names[i], scores[i])
 
     return results
 
