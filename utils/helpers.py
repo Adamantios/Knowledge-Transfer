@@ -244,5 +244,5 @@ def log_results(results: List[Dict]) -> None:
     final_results = 'Final results: \n'
     for result in results:
         final_results += result['method'] + ': \n'
-        final_results = _get_model_results(result['evaluation'], result['network'].metrics_names)
+        final_results += _get_model_results(result['evaluation'], result['network'].metrics_names)
     logging.info(final_results)
