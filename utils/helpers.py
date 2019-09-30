@@ -16,14 +16,26 @@ from student_networks.cifar10_tiny_1 import cifar10_tiny_1
 OptimizerType = Union[adam, rmsprop, sgd, adagrad, adadelta, adamax]
 
 
-def setup_logger(debug: bool) -> None:
+def setup_logger(debug: bool, out_folder: str) -> None:
     """
     Sets the program's logger up.
 
+    :param out_folder: path to the output folder.
     :param debug: Whether the logger should be set in debugging mode.
     """
     level = logging.DEBUG if debug else logging.INFO
-    logging.basicConfig(format='%(levelname)s: %(message)s', level=level)
+
+    log_formatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
+    root_logger = logging.getLogger()
+
+    file_handler = logging.FileHandler(join(out_folder, 'output.log'))
+    file_handler.setFormatter(log_formatter)
+    root_logger.addHandler(file_handler)
+
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(log_formatter)
+    root_logger.addHandler(console_handler)
+    root_logger.setLevel(level)
 
 
 def load_data(dataset: str) -> [Tuple[ndarray, ndarray], Tuple[Any, ndarray], int]:
@@ -234,10 +246,3 @@ def log_results(results: List[Dict], save_results: bool, out_folder: str) -> Non
         final_results += result['method'] + ': \n'
         final_results = _get_model_results(result['evaluation'], result['network'].metrics_names)
     logging.info(final_results)
-
-    # Save final results.
-    if save_results:
-        results_filepath = join(out_folder, 'final_results.log')
-        logging.log(msg=final_results, filename=results_filepath, filemode='w', format='%(message)s',
-                    level=logging.INFO)
-        logging.info('Evaluation results have been saved as {}.\n'.format(results_filepath))

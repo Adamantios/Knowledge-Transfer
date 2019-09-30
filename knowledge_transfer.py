@@ -169,11 +169,11 @@ if __name__ == '__main__':
     verbosity: int = args.verbosity
     check_args()
 
-    # Set logger up.
-    setup_logger(debug)
-
     # Create out folder path.
     create_path(out_folder)
+
+    # Set logger up.
+    setup_logger(debug, out_folder)
 
     # Load dataset.
     logging.info('Loading dataset...')
