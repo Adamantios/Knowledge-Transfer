@@ -4,7 +4,6 @@ from typing import Callable, Tuple
 from tensorflow import Tensor, divide, identity
 from tensorflow.python import shape, int32, cast
 from tensorflow.python.keras import Model
-from tensorflow.python.keras.activations import softmax
 from tensorflow.python.keras.layers import Activation, concatenate
 
 MetricType = Callable[[Tensor, Tensor], Tensor]
@@ -29,9 +28,9 @@ def softmax_with_temperature(temperature: float) -> Callable[[Tensor], Tensor]:
         :return: Tensor, output of softmax transformation (all values are non-negative and sum to 1).
         """
         if temperature == 1:
-            result = softmax(x)
+            result = Activation('softmax')(x)
         else:
-            result = softmax(divide(x, temperature))
+            result = Activation('softmax')(divide(x, temperature))
         return result
 
     return activation
@@ -49,7 +48,7 @@ def kd_student_adaptation(model: Model, temperature: float) -> Model:
     logits = model.layers[-2].output
 
     # Hard probabilities.
-    probabilities = softmax(logits)
+    probabilities = Activation('softmax')(logits)
 
     # Soft probabilities.
     if temperature == 1:
