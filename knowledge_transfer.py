@@ -1,7 +1,8 @@
 import logging
 from typing import Tuple, Union, List
 
-from numpy import concatenate
+from numpy import concatenate, argmax
+from sklearn.metrics import accuracy_score
 from tensorflow.python.keras import Model
 from tensorflow.python.keras.callbacks import History
 from tensorflow.python.keras.losses import categorical_crossentropy
@@ -77,7 +78,9 @@ def evaluate_results(results: list) -> None:
     """
     # Get baseline.
     logging.info('Calculating baseline.')
-    baseline = teacher.evaluate(x_test, y_test, evaluation_batch_size, verbosity)
+    baseline_y_pred = teacher.predict(x_test[:3], y_test[:3], evaluation_batch_size, verbosity)
+    baseline = accuracy_score(argmax(y_test[:3], axis=1), argmax(baseline_y_pred, axis=1))
+
     # Add baseline to the results list.
     results.append({
         'method': 'Teacher',
