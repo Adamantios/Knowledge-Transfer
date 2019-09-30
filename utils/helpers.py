@@ -185,21 +185,23 @@ def save_students(save_students_mode: str, results: list, out_folder: str) -> No
     """
     if save_students_mode == 'all':
         for result in results:
-            name = join(out_folder, result['method'], '_model.h5')
-            save_model(result['network'], name)
-            logging.info('Student network has been saved as {}...'.format(name))
+            model_name = join(out_folder, result['method'] + '_model.h5')
+            save_model(result['network'], model_name)
+            logging.info('Student network has been saved as {}...'.format(model_name))
 
     elif save_students_mode == 'best':
         best = -1
         best_model = None
         for result in results:
-            if result['network']['acc'] > best:
-                best = result['network']
-                best_model = result['model']
+            accuracy_idx = result['network'].metrics_names.index('accuracy')
+            accuracy = result['evaluation'][accuracy_idx]
+            if accuracy > best:
+                best = accuracy
+                best_model = result['network']
 
-        name = join(out_folder, 'best_model.h5')
-        save_model(best_model, )
-        logging.info('The best student network has been saved as {}...'.format(name))
+        model_name = join(out_folder, 'best_model.h5')
+        save_model(best_model, model_name)
+        logging.info('The best student network has been saved as {}...'.format(model_name))
 
 
 def _get_model_results(scores: list, metrics_names: list) -> str:
