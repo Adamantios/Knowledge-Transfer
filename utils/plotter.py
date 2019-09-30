@@ -18,39 +18,43 @@ def plot_results(results: List[Dict], save_folder: Optional[str]) -> None:
         if result['method'] != 'Teacher':
 
             for metric, history in result['history'].items():
-                # Create subplot for current metric.
-                fig, ax = plt.subplots(figsize=(12, 10))
-                ax.plot(history)
-                ax.set_title(result['method'], fontsize='x-large')
-                ax.set_xlabel('epoch', fontsize='large')
-                ax.set_ylabel(metric, fontsize='large')
-                fig.show()
+                # Plot only validation metric results.
+                if metric.startswith('val_'):
+                    # Create subplot for current metric.
+                    fig, ax = plt.subplots(figsize=(12, 10))
+                    ax.plot(history)
+                    ax.set_title(result['method'], fontsize='x-large')
+                    ax.set_xlabel('epoch', fontsize='large')
+                    ax.set_ylabel(metric, fontsize='large')
+                    fig.show()
 
-                if save_folder is not None:
-                    filepath = join(save_folder, result['method'] + '_' + metric + '_vs_epoch' + '.png')
-                    fig.savefig(filepath)
+                    if save_folder is not None:
+                        filepath = join(save_folder, result['method'] + '_' + metric + '_vs_epoch' + '.png')
+                        fig.savefig(filepath)
 
     # Plot KT methods comparison for each metric.
     linestyles = ['-', '-.', ':']
     for metric_index, metric in enumerate(results[0]['history'].keys()):
-        linestyles_pool = cycle(linestyles)
-        # Create subplot for overall KT methods comparison for the current metric.
-        fig, ax = plt.subplots(figsize=(12, 10))
-        ax.set_title('KT Methods Comparison', fontsize='x-large')
-        ax.set_xlabel('epoch', fontsize='large')
-        ax.set_ylabel(metric, fontsize='large')
-        # For every method.
-        for result in results:
-            if result['method'] == 'Teacher':
-                # Plot teacher baseline.
-                ax.plot(result['evaluation'], label=result['method'], linestyle='--')
-            else:
-                # Plot method's current metric results.
-                ax.plot(list(result['history'].values())[metric_index], label=result['method'],
-                        linestyle=next(linestyles_pool))
+        # Plot only validation metric results.
+        if metric.startswith('val_') and 'loss' not in metric:
+            linestyles_pool = cycle(linestyles)
+            # Create subplot for overall KT methods comparison for the current metric.
+            fig, ax = plt.subplots(figsize=(12, 10))
+            ax.set_title('KT Methods Comparison', fontsize='x-large')
+            ax.set_xlabel('epoch', fontsize='large')
+            ax.set_ylabel(metric, fontsize='large')
+            # For every method.
+            for result in results:
+                if result['method'] == 'Teacher':
+                    # Plot teacher baseline.
+                    ax.plot(result['evaluation'], label=result['method'], linestyle='--')
+                else:
+                    # Plot method's current metric results.
+                    ax.plot(list(result['history'].values())[metric_index], label=result['method'],
+                            linestyle=next(linestyles_pool))
 
-        ax.legend(loc='best', fontsize='large')
-        fig.show()
-        if save_folder is not None:
-            filepath = join(save_folder, 'KT_Methods_Comparison_' + metric + '_vs_epoch' + '.png')
-            fig.savefig(filepath)
+            ax.legend(loc='best', fontsize='large')
+            fig.show()
+            if save_folder is not None:
+                filepath = join(save_folder, 'KT_Methods_Comparison_' + metric + '_vs_epoch' + '.png')
+                fig.savefig(filepath)
