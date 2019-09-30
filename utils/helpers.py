@@ -237,7 +237,7 @@ def log_results(results: List[Dict], save_results: bool, out_folder: str) -> Non
 
     # Save final results.
     if save_results:
-        results_filepath = out_folder + 'final_results.log'
+        results_filepath = join(out_folder, 'final_results.log')
         logging.log(msg=final_results, filename=results_filepath, filemode='w', format='%(message)s',
                     level=logging.INFO)
         logging.info('Evaluation results have been saved as {}.\n'.format(results_filepath))

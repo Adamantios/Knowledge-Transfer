@@ -27,7 +27,7 @@ def plot_results(results: List[Dict], save_folder: Optional[str]) -> None:
                 fig.show()
 
                 if save_folder is not None:
-                    filepath = join(save_folder, result['method'], '_', metric, '_vs_epoch', '.png')
+                    filepath = join(save_folder, result['method'] + '_' + metric + '_vs_epoch' + '.png')
                     fig.savefig(filepath)
 
     # Plot KT methods comparison for each metric.
@@ -52,5 +52,5 @@ def plot_results(results: List[Dict], save_folder: Optional[str]) -> None:
         ax.legend(loc='best', fontsize='large')
         fig.show()
         if save_folder is not None:
-            filepath = join(save_folder, 'KT_Methods_Comparison_', metric, '_vs_epoch', '.png')
+            filepath = join(save_folder, 'KT_Methods_Comparison_' + metric + '_vs_epoch' + '.png')
             fig.savefig(filepath)
