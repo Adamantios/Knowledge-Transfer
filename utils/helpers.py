@@ -145,14 +145,15 @@ def init_callbacks(lr_patience: int, lr_decay: float, lr_min: float, early_stopp
     return callbacks
 
 
-def create_path(filepath: str) -> None:
+def create_path(filepath: str, base: bool = False) -> None:
     """
     Creates a path to a file, if it does not exist.
 
     :param filepath: the filepath.
+    :param base: whether to create the base dir only, or the full path.
     """
     # Get the file's directory.
-    directory = dirname(filepath)
+    directory = dirname(filepath) if base else filepath
 
     # Create directory if it does not exist
     if not exists(directory):

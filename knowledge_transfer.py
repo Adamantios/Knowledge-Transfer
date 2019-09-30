@@ -12,7 +12,7 @@ from tensorflow.python.keras.utils import to_categorical
 from core.adaptation import Method, kt_metric, kd_student_adaptation, kd_student_rewind
 from core.losses import LossType, distillation_loss, pkt_loss
 from utils.helpers import initialize_optimizer, load_data, preprocess_data, create_student, init_callbacks, \
-    setup_logger, OptimizerType, save_students, log_results, copy_model
+    setup_logger, OptimizerType, save_students, log_results, copy_model, create_path
 from utils.parser import create_parser
 from utils.plotter import plot_results
 
@@ -168,6 +168,9 @@ if __name__ == '__main__':
 
     # Set logger up.
     setup_logger(debug)
+
+    # Create out folder path.
+    create_path(out_folder)
 
     # Load dataset.
     logging.info('Loading dataset...')
