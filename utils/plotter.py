@@ -34,9 +34,11 @@ def plot_results(results: List[Dict], save_folder: Optional[str]) -> None:
 
     # Plot KT methods comparison for each metric.
     linestyles = ['-', '-.', ':']
+    i = 0
     for metric_index, metric in enumerate(results[0]['history'].keys()):
         # Plot only validation metric results.
         if metric.startswith('val_') and 'loss' not in metric:
+            i += 1
             linestyles_pool = cycle(linestyles)
             # Create subplot for overall KT methods comparison for the current metric.
             fig, ax = plt.subplots(figsize=(12, 10))
@@ -45,9 +47,11 @@ def plot_results(results: List[Dict], save_folder: Optional[str]) -> None:
             ax.set_ylabel(metric, fontsize='large')
             # For every method.
             for result in results:
+                # Plot teacher baseline. TODO correct it to plot a straight line and not a point.
+                #                         Need to repeat values for all epochs.
                 if result['method'] == 'Teacher':
                     # Plot teacher baseline.
-                    ax.plot(result['evaluation'], label=result['method'], linestyle='--')
+                    ax.plot(result['evaluation'][i], label=result['method'], linestyle='--')
                 else:
                     # Plot method's current metric results.
                     ax.plot(list(result['history'].values())[metric_index], label=result['method'],
