@@ -16,11 +16,12 @@ from student_networks.cifar10_tiny_1 import cifar10_tiny_1
 OptimizerType = Union[adam, rmsprop, sgd, adagrad, adadelta, adamax]
 
 
-def setup_logger(debug: bool, out_folder: str) -> None:
+def setup_logger(debug: bool, save: bool, out_folder: str) -> None:
     """
     Sets the program's logger up.
 
     :param out_folder: path to the output folder.
+    :param save: whether the logs should be saved to a file.
     :param debug: Whether the logger should be set in debugging mode.
     """
     level = logging.DEBUG if debug else logging.INFO
@@ -28,9 +29,10 @@ def setup_logger(debug: bool, out_folder: str) -> None:
     log_formatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
     root_logger = logging.getLogger()
 
-    file_handler = logging.FileHandler(join(out_folder, 'output.log'))
-    file_handler.setFormatter(log_formatter)
-    root_logger.addHandler(file_handler)
+    if save:
+        file_handler = logging.FileHandler(join(out_folder, 'output.log'))
+        file_handler.setFormatter(log_formatter)
+        root_logger.addHandler(file_handler)
 
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(log_formatter)

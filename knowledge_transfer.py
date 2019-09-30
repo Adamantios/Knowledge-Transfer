@@ -173,7 +173,7 @@ if __name__ == '__main__':
     create_path(out_folder)
 
     # Set logger up.
-    setup_logger(debug, out_folder)
+    setup_logger(debug, save_results, out_folder)
 
     # Load dataset.
     logging.info('Loading dataset...')
