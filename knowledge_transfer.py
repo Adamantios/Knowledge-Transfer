@@ -1,11 +1,10 @@
 import logging
 from typing import Tuple, Union, List
 
-from numpy import concatenate, argmax
-from sklearn.metrics import accuracy_score
+from numpy import concatenate
 from tensorflow.python.keras import Model
 from tensorflow.python.keras.callbacks import History
-from tensorflow.python.keras.losses import categorical_crossentropy
+from tensorflow.python.keras.losses import categorical_crossentropy, mse
 from tensorflow.python.keras.metrics import categorical_accuracy
 from tensorflow.python.keras.saving import load_model
 from tensorflow.python.keras.utils import to_categorical
@@ -24,7 +23,7 @@ def check_args() -> None:
         raise ValueError('You cannot set both clip norm and clip value.')
 
 
-def knowledge_transfer(optimizer: OptimizerType, method: Method, loss: LossType) -> \
+def knowledge_transfer(optimizer: OptimizerType, method: Method, loss: LossType, eval_loss: LossType) -> \
         Tuple[Model, History, Union[None, float, List[float]]]:
     """
     Performs KT.
@@ -32,6 +31,7 @@ def knowledge_transfer(optimizer: OptimizerType, method: Method, loss: LossType)
     :param optimizer: the optimizer to be used for the KT.
     :param method: the method used fot the KT.
     :param loss: the KT loss to be used.
+    :param eval_loss: the loss to be used for the evaluation.
     :return: Keras History object.
     """
     # Create student model.
@@ -65,21 +65,23 @@ def knowledge_transfer(optimizer: OptimizerType, method: Method, loss: LossType)
     if method == Method.DISTILLATION:
         student = kd_student_rewind(student)
 
+    student.loss = eval_loss
     evaluation = student.evaluate(x_test, y_test, evaluation_batch_size, verbosity)
 
     return copy_model(student), history, evaluation
 
 
-def evaluate_results(results: list) -> None:
+def evaluate_results(optimizer: OptimizerType, eval_loss: LossType, results: list) -> None:
     """
     Evaluates the KT comparison results.
 
+    :param optimizer: the optimizer to be used for the teacher.
+    :param eval_loss: the loss to be used for the evaluation.
     :param results: the results list.
     """
-    # Get baseline.
     logging.info('Calculating baseline.')
-    baseline_y_pred = teacher.predict(x_test[:3], y_test[:3], evaluation_batch_size, verbosity)
-    baseline = accuracy_score(argmax(y_test[:3], axis=1), argmax(baseline_y_pred, axis=1))
+    teacher.compile(optimizer=optimizer, loss=eval_loss, metrics=[categorical_accuracy, categorical_crossentropy])
+    baseline = teacher.evaluate(x_test, y_test, evaluation_batch_size, verbosity)
 
     # Add baseline to the results list.
     results.append({
@@ -88,12 +90,14 @@ def evaluate_results(results: list) -> None:
         'history': None,
         'evaluation': baseline
     })
+    logging.debug(results)
+
     # Plot training information.
     save_folder = out_folder if save_results else None
     plot_results(results, save_folder)
 
     # Log results.
-    log_results(results, save_results, out_folder)
+    log_results(results)
 
 
 def compare_kt_methods() -> None:
@@ -112,11 +116,12 @@ def compare_kt_methods() -> None:
             'loss': pkt_loss(lambda_supervised)
         }
     ]
+    eval_loss = mse
     results = []
 
     for method in methods:
         logging.info('Performing {}...'.format(method['name']))
-        student, history, evaluation = knowledge_transfer(optimizer, method['method'], method['loss'])
+        student, history, evaluation = knowledge_transfer(optimizer, method['method'], method['loss'], eval_loss)
         # TODO model_path = os.path.join(tempfile.gettempdir(), next(tempfile._get_candidate_names()) + '.h5')
         #  and save student model there, when we stop needing it,
         #  because it is inefficient to have it in memory until - if ever - we need to save it.
@@ -128,13 +133,11 @@ def compare_kt_methods() -> None:
             'evaluation': evaluation
         })
 
-    logging.debug(results)
-
     logging.info('Saving student network(s)...')
     save_students(save_students_mode, results, out_folder)
 
     logging.info('Evaluating results...')
-    evaluate_results(results)
+    evaluate_results(optimizer, eval_loss, results)
 
 
 if __name__ == '__main__':
