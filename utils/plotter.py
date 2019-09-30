@@ -32,8 +32,8 @@ def plot_results(results: List[Dict], save_folder: Optional[str]) -> None:
 
     # Plot KT methods comparison for each metric.
     linestyles = ['-', '-.', ':']
-    linestyles_pool = cycle(linestyles)
     for metric_index, metric in enumerate(results[0]['history'].keys()):
+        linestyles_pool = cycle(linestyles)
         # Create subplot for overall KT methods comparison for the current metric.
         fig, ax = plt.subplots(figsize=(12, 10))
         ax.set_title('KT Methods Comparison', fontsize='x-large')
