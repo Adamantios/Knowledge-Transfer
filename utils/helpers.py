@@ -233,13 +233,11 @@ def _get_model_results(scores: list, metrics_names: list) -> str:
     return results
 
 
-def log_results(results: List[Dict], save_results: bool, out_folder: str) -> None:
+def log_results(results: List[Dict]) -> None:
     """
     Prints the KT comparison results string.
 
     :param results: the comparison results list.
-    :param save_results: whether the results should be saved to a file.
-    :param out_folder: the out folder for the results.
     """
     # TODO compare teacher and student n_params.
     # Show final results.
