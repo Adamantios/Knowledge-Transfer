@@ -239,9 +239,14 @@ def log_results(results: List[Dict]) -> None:
 
     :param results: the comparison results list.
     """
-    # TODO compare teacher and student n_params.
     # Show final results.
     final_results = 'Final results: \n'
+
+    teacher_params = results[-1]['network'].count_params()
+    student_params = results[0]['network'].count_params()
+    final_results += 'Parameters:\n    Teacher params: {}\n    Student params: {}\n    Ratio: T/S={:.4} S/T={:.4}\n' \
+        .format(teacher_params, student_params, teacher_params / student_params, student_params / teacher_params)
+
     for result in results:
         final_results += result['method'] + ': \n'
         final_results += _get_model_results(result['evaluation'], result['network'].metrics_names)
