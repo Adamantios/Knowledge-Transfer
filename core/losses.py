@@ -9,6 +9,7 @@ from core.adaptation import MetricType, split_targets, softmax_with_temperature,
 LossType = MetricType
 
 
+# TODO add cycle loss.
 def _distillation_loss_calculator(teacher_logits: Tensor, y_student: Tensor, temperature: float,
                                   y_true: Tensor, y_pred: Tensor, lambda_const: float) -> Tensor:
     """
