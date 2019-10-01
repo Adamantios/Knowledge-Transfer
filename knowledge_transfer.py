@@ -100,12 +100,12 @@ def compare_kt_methods() -> None:
         {
             'name': 'Knowledge Distillation',
             'method': Method.DISTILLATION,
-            'loss': distillation_loss(temperature, lambda_supervised)
+            'loss': distillation_loss(temperature, kd_lambda_supervised)
         },
         {
             'name': 'Probabilistic Knowledge Transfer',
             'method': Method.PKT,
-            'loss': pkt_loss(lambda_supervised)
+            'loss': pkt_loss(pkt_lambda_supervised)
         }
     ]
     results = []
@@ -139,7 +139,8 @@ if __name__ == '__main__':
     dataset: str = args.dataset
     start_weights: str = args.start_weights
     temperature: float = args.temperature
-    lambda_supervised: float = args.lambda_supervised
+    kd_lambda_supervised: float = args.kd_lambda_supervised
+    pkt_lambda_supervised: float = args.pkt_lambda_supervised
     save_students_mode: str = args.save_students
     save_results: bool = not args.omit_results
     out_folder: str = args.out_folder

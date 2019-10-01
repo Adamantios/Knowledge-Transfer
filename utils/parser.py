@@ -5,8 +5,8 @@ from argparse import ArgumentParser
 STUDENT_CHOICES = {'cifar10_tiny_1'}
 DATASET_CHOICES = {'cifar10', 'cifar100'}
 TEMPERATURE = 2
-# TODO have different lambdas for pkt and distillation.
-LAMBDA_SUPERVISED = 0.1
+KD_LAMBDA_SUPERVISED = 0.1
+PKT_LAMBDA_SUPERVISED = 0.1
 SAVE_STUDENTS = 'best'
 SAVE_STUDENTS_CHOICES = 'all', 'best', 'none'
 SAVE_RESULTS = True
@@ -48,8 +48,10 @@ def create_parser() -> ArgumentParser:
                         help='Filepath containing existing weights to initialize the model.')
     parser.add_argument('-t', '--temperature', default=TEMPERATURE, required=False, type=float,
                         help='The temperature for the distillation (default %(default)s).')
-    parser.add_argument('-l', '--lambda_supervised', default=LAMBDA_SUPERVISED, required=False, type=float,
-                        help='The lambda value for the supervised term (default %(default)s).')
+    parser.add_argument('-kdl', '--kd_lambda_supervised', default=KD_LAMBDA_SUPERVISED, required=False, type=float,
+                        help='The lambda value for the KD supervised term (default %(default)s).')
+    parser.add_argument('-pktl', '--pkt_lambda_supervised', default=PKT_LAMBDA_SUPERVISED, required=False, type=float,
+                        help='The lambda value for the PKT supervised term (default %(default)s).')
     parser.add_argument('-s', '--save_students', type=str.lower, default=SAVE_STUDENTS, required=False,
                         choices=SAVE_STUDENTS_CHOICES,
                         help='The save mode for the final student networks. (default %(default)s).')
