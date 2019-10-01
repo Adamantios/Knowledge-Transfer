@@ -207,7 +207,7 @@ def save_students(save_students_mode: str, results: list, out_folder: str) -> No
         best = -1
         best_model = None
         for result in results:
-            accuracy_idx = result['network'].metrics_names.index('accuracy')
+            accuracy_idx = result['network'].metrics_names.index('categorical_accuracy')
             accuracy = result['evaluation'][accuracy_idx]
             if accuracy > best:
                 best = accuracy
@@ -228,7 +228,7 @@ def _get_model_results(scores: list, metrics_names: list) -> str:
     """
     results = ''
     for i in range(len(scores)):
-        results += "{}: {}\n".format(metrics_names[i], scores[i])
+        results += "    {}: {}\n".format(metrics_names[i], scores[i])
 
     return results
 

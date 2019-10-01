@@ -1,5 +1,5 @@
 import logging
-from typing import Tuple, Union, List
+from typing import Tuple
 
 from numpy import concatenate
 from tensorflow.python.keras import Model
@@ -23,16 +23,14 @@ def check_args() -> None:
         raise ValueError('You cannot set both clip norm and clip value.')
 
 
-def knowledge_transfer(optimizer: OptimizerType, method: Method, loss: LossType, eval_loss: LossType) -> \
-        Tuple[Model, History, Union[None, float, List[float]]]:
+def knowledge_transfer(optimizer: OptimizerType, method: Method, loss: LossType) -> Tuple[Model, History]:
     """
     Performs KT.
 
     :param optimizer: the optimizer to be used for the KT.
     :param method: the method used fot the KT.
     :param loss: the KT loss to be used.
-    :param eval_loss: the loss to be used for the evaluation.
-    :return: Keras History object.
+    :return: Tuple containing a student Keras model and its training History object.
     """
     # Create student model.
     logging.info('Creating student...')
@@ -58,38 +56,32 @@ def knowledge_transfer(optimizer: OptimizerType, method: Method, loss: LossType,
                           validation_data=(x_test, y_test_concat),
                           callbacks=callbacks_list)
 
-    # Evaluating results.
-    logging.info('Evaluating student\'s results.')
-
     # Rewind student to normal, if necessary.
     if method == Method.DISTILLATION:
         student = kd_student_rewind(student)
 
-    student.loss = eval_loss
-    evaluation = student.evaluate(x_test, y_test, evaluation_batch_size, verbosity)
-
-    return copy_model(student), history, evaluation
+    return copy_model(student), history
 
 
-def evaluate_results(optimizer: OptimizerType, eval_loss: LossType, results: list) -> None:
+def evaluate_results(optimizer: OptimizerType, results: list) -> None:
     """
     Evaluates the KT comparison results.
 
     :param optimizer: the optimizer to be used for the teacher.
-    :param eval_loss: the loss to be used for the evaluation.
     :param results: the results list.
     """
-    logging.info('Calculating baseline.')
-    teacher.compile(optimizer=optimizer, loss=eval_loss, metrics=[categorical_accuracy, categorical_crossentropy])
-    baseline = teacher.evaluate(x_test, y_test, evaluation_batch_size, verbosity)
-
     # Add baseline to the results list.
     results.append({
         'method': 'Teacher',
         'network': teacher,
         'history': None,
-        'evaluation': baseline
+        'evaluation': None
     })
+
+    for result in results:
+        logging.info('Evaluating {}...'.format(result['method']))
+        result['network'].compile(optimizer, mse, [categorical_accuracy, categorical_crossentropy])
+        result['evaluation'] = result['network'].evaluate(x_test, y_test, evaluation_batch_size, verbosity)
     logging.debug(results)
 
     # Plot training information.
@@ -116,12 +108,11 @@ def compare_kt_methods() -> None:
             'loss': pkt_loss(lambda_supervised)
         }
     ]
-    eval_loss = mse
     results = []
 
     for method in methods:
         logging.info('Performing {}...'.format(method['name']))
-        student, history, evaluation = knowledge_transfer(optimizer, method['method'], method['loss'], eval_loss)
+        student, history = knowledge_transfer(optimizer, method['method'], method['loss'])
         # TODO model_path = os.path.join(tempfile.gettempdir(), next(tempfile._get_candidate_names()) + '.h5')
         #  and save student model there, when we stop needing it,
         #  because it is inefficient to have it in memory until - if ever - we need to save it.
@@ -130,14 +121,14 @@ def compare_kt_methods() -> None:
             'method': method['name'],
             'network': student,
             'history': history.history,
-            'evaluation': evaluation
+            'evaluation': None
         })
 
-    logging.info('Saving student network(s)...')
-    save_students(save_students_mode, results, out_folder)
-
     logging.info('Evaluating results...')
-    evaluate_results(optimizer, eval_loss, results)
+    evaluate_results(optimizer, results)
+
+    logging.info('Saving student network(s)...')
+    save_students(save_students_mode, results[:-1], out_folder)
 
 
 if __name__ == '__main__':
@@ -177,6 +168,7 @@ if __name__ == '__main__':
 
     # Set logger up.
     setup_logger(debug, save_results, out_folder)
+    logging.info('\n------------------------------------------------------------------------------------------------\n')
 
     # Load dataset.
     logging.info('Loading dataset...')
