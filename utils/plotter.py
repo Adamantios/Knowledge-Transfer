@@ -3,13 +3,15 @@ from os.path import join
 from typing import List, Optional, Dict
 
 import matplotlib.pyplot as plt
+from numpy import asarray
 
 
-def plot_results(results: List[Dict], save_folder: Optional[str]) -> None:
+def plot_results(results: List[Dict], epochs: int, save_folder: Optional[str]) -> None:
     """
     Plots the KT results.
 
     :param results: the results for each one of the KT method applied.
+    :param epochs: the number of epochs the experiment ran for.
     :param save_folder: the folder in which the plots will be saved.
     """
     # Plot every metric result for every KT method.
@@ -33,7 +35,7 @@ def plot_results(results: List[Dict], save_folder: Optional[str]) -> None:
                         fig.savefig(filepath)
 
     # Plot KT methods comparison for each metric.
-    linestyles = ['-', '-.', ':']
+    linestyles = ['--', '-.', ':']
     i = 0
     for metric_index, metric in enumerate(results[0]['history'].keys()):
         # Plot only validation metric results.
@@ -47,11 +49,10 @@ def plot_results(results: List[Dict], save_folder: Optional[str]) -> None:
             ax.set_ylabel(metric, fontsize='large')
             # For every method.
             for result in results:
-                # Plot teacher baseline. TODO correct it to plot a straight line and not a point.
-                #                         Need to repeat values for all epochs.
                 if result['method'] == 'Teacher':
                     # Plot teacher baseline.
-                    ax.plot(result['evaluation'][i], label=result['method'], linestyle='--')
+                    baseline = asarray([result['evaluation'][i] for _ in range(epochs)])
+                    ax.plot(baseline, label=result['method'], linestyle='-')
                 else:
                     # Plot method's current metric results.
                     ax.plot(list(result['history'].values())[metric_index], label=result['method'],

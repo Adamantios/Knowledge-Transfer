@@ -86,7 +86,7 @@ def evaluate_results(optimizer: OptimizerType, results: list) -> None:
 
     # Plot training information.
     save_folder = out_folder if save_results else None
-    plot_results(results, save_folder)
+    plot_results(results, epochs, save_folder)
 
     # Log results.
     log_results(results)
