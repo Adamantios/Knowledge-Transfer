@@ -42,6 +42,9 @@ def knowledge_transfer(optimizer: OptimizerType, method: Method, loss: LossType)
 
     logging.debug('Configuring student...')
 
+    # Reset optimizer's learning rate.
+    optimizer.lr = learning_rate
+
     # Create KT metrics and give them names.
     kt_acc = kt_metric(categorical_accuracy, method)
     kt_acc.__name__ = 'accuracy'
