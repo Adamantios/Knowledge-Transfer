@@ -28,7 +28,7 @@ def plot_results(results: List[Dict], epochs: int, save_folder: Optional[str]) -
                     ax.set_title(result['method'], fontsize='x-large')
                     ax.set_xlabel('epoch', fontsize='large')
                     ax.set_ylabel(metric, fontsize='large')
-                    fig.show()
+                    plt.show()
 
                     if save_folder is not None:
                         filepath = join(save_folder, result['method'] + '_' + metric + '_vs_epoch' + '.png')
@@ -59,7 +59,7 @@ def plot_results(results: List[Dict], epochs: int, save_folder: Optional[str]) -
                             linestyle=next(linestyles_pool))
 
             ax.legend(loc='best', fontsize='large')
-            fig.show()
+            plt.show()
             if save_folder is not None:
                 filepath = join(save_folder, 'KT_Methods_Comparison_' + metric + '_vs_epoch' + '.png')
                 fig.savefig(filepath)
