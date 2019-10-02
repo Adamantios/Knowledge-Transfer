@@ -12,7 +12,7 @@ from tensorflow.python.keras.utils import to_categorical
 from core.adaptation import Method, kt_metric, kd_student_adaptation, kd_student_rewind
 from core.losses import LossType, distillation_loss, pkt_loss
 from utils.helpers import initialize_optimizer, load_data, preprocess_data, create_student, init_callbacks, \
-    setup_logger, OptimizerType, save_students, log_results, copy_model, create_path
+    setup_logger, save_students, log_results, copy_model, create_path
 from utils.parser import create_parser
 from utils.plotter import plot_results
 
@@ -23,11 +23,10 @@ def check_args() -> None:
         raise ValueError('You cannot set both clip norm and clip value.')
 
 
-def knowledge_transfer(optimizer: OptimizerType, method: Method, loss: LossType) -> Tuple[Model, History]:
+def knowledge_transfer(method: Method, loss: LossType) -> Tuple[Model, History]:
     """
     Performs KT.
 
-    :param optimizer: the optimizer to be used for the KT.
     :param method: the method used fot the KT.
     :param loss: the KT loss to be used.
     :return: Tuple containing a student Keras model and its training History object.
@@ -42,8 +41,9 @@ def knowledge_transfer(optimizer: OptimizerType, method: Method, loss: LossType)
 
     logging.debug('Configuring student...')
 
-    # Reset optimizer's learning rate.
-    optimizer.lr = learning_rate
+    # Create optimizer.
+    optimizer = initialize_optimizer(optimizer_name, learning_rate, decay, beta1, beta2, rho, momentum,
+                                     clip_norm, clip_value)
 
     # Create KT metrics and give them names.
     kt_acc = kt_metric(categorical_accuracy, method)
@@ -66,11 +66,10 @@ def knowledge_transfer(optimizer: OptimizerType, method: Method, loss: LossType)
     return copy_model(student), history
 
 
-def evaluate_results(optimizer: OptimizerType, results: list) -> None:
+def evaluate_results(results: list) -> None:
     """
     Evaluates the KT comparison results.
 
-    :param optimizer: the optimizer to be used for the teacher.
     :param results: the results list.
     """
     # Add baseline to the results list.
@@ -80,6 +79,10 @@ def evaluate_results(optimizer: OptimizerType, results: list) -> None:
         'history': None,
         'evaluation': None
     })
+
+    # Create optimizer.
+    optimizer = initialize_optimizer(optimizer_name, learning_rate, decay, beta1, beta2, rho, momentum,
+                                     clip_norm, clip_value)
 
     for result in results:
         logging.info('Evaluating {}...'.format(result['method']))
@@ -97,8 +100,7 @@ def evaluate_results(optimizer: OptimizerType, results: list) -> None:
 
 def compare_kt_methods() -> None:
     """ Compares all the available KT methods. """
-    optimizer = initialize_optimizer(optimizer_name, learning_rate, decay, beta1, beta2, rho, momentum,
-                                     clip_norm, clip_value)
+
     methods = [
         {
             'name': 'Knowledge Distillation',
@@ -115,7 +117,7 @@ def compare_kt_methods() -> None:
 
     for method in methods:
         logging.info('Performing {}...'.format(method['name']))
-        student, history = knowledge_transfer(optimizer, method['method'], method['loss'])
+        student, history = knowledge_transfer(method['method'], method['loss'])
         # TODO model_path = os.path.join(tempfile.gettempdir(), next(tempfile._get_candidate_names()) + '.h5')
         #  and save student model there, when we stop needing it,
         #  because it is inefficient to have it in memory until - if ever - we need to save it.
@@ -128,7 +130,7 @@ def compare_kt_methods() -> None:
         })
 
     logging.info('Evaluating results...')
-    evaluate_results(optimizer, results)
+    evaluate_results(results)
 
     logging.info('Saving student network(s)...')
     save_students(save_students_mode, results[:-1], out_folder)
