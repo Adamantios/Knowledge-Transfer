@@ -40,7 +40,7 @@ def knowledge_transfer(optimizer: OptimizerType, method: Method, loss: LossType)
     if method == Method.DISTILLATION:
         student = kd_student_adaptation(student, temperature)
 
-    logging.info('Configuring...')
+    logging.debug('Configuring student...')
 
     # Create KT metrics and give them names.
     kt_acc = kt_metric(categorical_accuracy, method)
@@ -191,7 +191,7 @@ if __name__ == '__main__':
     y_test_concat = concatenate([y_test, y_teacher_test], axis=1)
 
     # Initialize callbacks list.
-    logging.info('Configuring...')
+    logging.debug('Initializing Callbacks...')
     callbacks_list = init_callbacks(lr_patience, lr_decay, lr_min, early_stopping_patience, verbosity)
 
     # Run comparison.
