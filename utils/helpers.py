@@ -201,7 +201,7 @@ def save_students(save_students_mode: str, results: list, out_folder: str) -> No
         for result in results:
             model_name = join(out_folder, result['method'] + '_model.h5')
             save_model(result['network'], model_name)
-            logging.info('Student network has been saved as {}...'.format(model_name))
+            logging.info('Student network has been saved as {}.'.format(model_name))
 
     elif save_students_mode == 'best':
         best = -1
@@ -215,7 +215,7 @@ def save_students(save_students_mode: str, results: list, out_folder: str) -> No
 
         model_name = join(out_folder, 'best_model.h5')
         save_model(best_model, model_name)
-        logging.info('The best student network has been saved as {}...'.format(model_name))
+        logging.info('The best student network has been saved as {}.'.format(model_name))
 
 
 def _get_model_results(scores: list, metrics_names: list) -> str:
