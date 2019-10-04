@@ -152,7 +152,7 @@ def init_callbacks(lr_patience: int, lr_decay: float, lr_min: float, early_stopp
         callbacks.append(learning_rate_reduction)
 
     if early_stopping_patience > 0:
-        early_stopping = EarlyStopping(monitor='val_accuracy', patience=early_stopping_patience, min_delta=.002,
+        early_stopping = EarlyStopping(monitor='val_accuracy', patience=early_stopping_patience, min_delta=.0002,
                                        verbose=verbosity)
         callbacks.append(early_stopping)
 
