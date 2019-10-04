@@ -73,7 +73,7 @@ def create_parser() -> ArgumentParser:
     parser.add_argument('-lrm', '--learning_rate_min', type=float, default=LR_MIN, required=False,
                         help='The minimum learning rate which can be reached (default %(default)s).')
     parser.add_argument('-esp', '--early_stopping_patience', type=int, default=EARLY_STOPPING_PATIENCE, required=False,
-                        help='The number of epochs to wait before early stopping'
+                        help='The number of epochs to wait before early stopping. '
                              'If 0 is given, early stopping will not be applied. (default %(default)s).')
     parser.add_argument('-cn', '--clip_norm', type=float, required=False,
                         help='The clip norm for the optimizer (default %(default)s).')
