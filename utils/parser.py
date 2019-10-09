@@ -4,6 +4,8 @@ from argparse import ArgumentParser
 
 STUDENT_CHOICES = {'cifar10_tiny_1'}
 DATASET_CHOICES = {'cifar10', 'cifar100'}
+METHOD = ['distillation', 'pkt']
+METHOD_CHOICES = {'distillation', 'pkt'}
 TEMPERATURE = 2
 KD_LAMBDA_SUPERVISED = 0.1
 PKT_LAMBDA_SUPERVISED = 1E-4
@@ -44,6 +46,8 @@ def create_parser() -> ArgumentParser:
     parser.add_argument('teacher', type=str, help='Path to a trained teacher network.')
     parser.add_argument('student', type=str, choices=STUDENT_CHOICES, help='Path to a student network.')
     parser.add_argument('dataset', type=str, choices=DATASET_CHOICES, help='The name of the dataset to be used.')
+    parser.add_argument('-m', '--method', type=str.lower, nargs='+', default=METHOD, required=False,
+                        choices=METHOD_CHOICES, help='The KT method to be used. (default %(default)s).')
     parser.add_argument('-w', '--start_weights', type=str, required=False,
                         help='Filepath containing existing weights to initialize the model.')
     parser.add_argument('-t', '--temperature', default=TEMPERATURE, required=False, type=float,

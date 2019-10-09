@@ -1,5 +1,5 @@
 import logging
-from typing import Tuple
+from typing import Tuple, List, Union
 
 from numpy import concatenate
 from tensorflow.python.keras import Model
@@ -68,7 +68,7 @@ def knowledge_transfer(method: Method, loss: LossType) -> Tuple[Model, History]:
 
 def evaluate_results(results: list) -> None:
     """
-    Evaluates the KT comparison results.
+    Evaluates the KT results.
 
     :param results: the results list.
     """
@@ -98,21 +98,35 @@ def evaluate_results(results: list) -> None:
     log_results(results)
 
 
-def compare_kt_methods() -> None:
-    """ Compares all the available KT methods. """
+def generate_appropriate_methods(methods):
+    kd = {
+        'name': 'Knowledge Distillation',
+        'method': Method.DISTILLATION,
+        'loss': distillation_loss(temperature, kd_lambda_supervised)
+    }
 
-    methods = [
-        {
-            'name': 'Knowledge Distillation',
-            'method': Method.DISTILLATION,
-            'loss': distillation_loss(temperature, kd_lambda_supervised)
-        },
-        {
-            'name': 'Probabilistic Knowledge Transfer',
-            'method': Method.PKT,
-            'loss': pkt_loss(pkt_lambda_supervised)
-        }
-    ]
+    pkt = {
+        'name': 'Probabilistic Knowledge Transfer',
+        'method': Method.PKT,
+        'loss': pkt_loss(pkt_lambda_supervised)
+    }
+
+    if isinstance(kt_methods, str):
+        if kt_methods == 'distillation':
+            methods.append(kd)
+        elif kt_methods == 'pkt':
+            methods.append(pkt)
+    else:
+        if 'distillation' in kt_methods:
+            methods.append(kd)
+        if 'pkt' in kt_methods:
+            methods.append(pkt)
+
+
+def run_kt_methods() -> None:
+    """ Runs all the available KT methods. """
+    methods = []
+    generate_appropriate_methods(methods)
     results = []
 
     for method in methods:
@@ -142,6 +156,7 @@ if __name__ == '__main__':
     teacher: Model = load_model(args.teacher, compile=False)
     student_name: str = args.student
     dataset: str = args.dataset
+    kt_methods: Union[str, List[str]] = args.method
     start_weights: str = args.start_weights
     temperature: float = args.temperature
     kd_lambda_supervised: float = args.kd_lambda_supervised
@@ -199,7 +214,7 @@ if __name__ == '__main__':
     logging.debug('Initializing Callbacks...')
     callbacks_list = init_callbacks(lr_patience, lr_decay, lr_min, early_stopping_patience, verbosity)
 
-    # Run comparison.
-    logging.info('Starting KT methods comparison...')
-    compare_kt_methods()
+    # Run kt.
+    logging.info('Starting KT method(s)...')
+    run_kt_methods()
     logging.info('Finished!')

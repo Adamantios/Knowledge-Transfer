@@ -235,9 +235,9 @@ def _get_model_results(scores: list, metrics_names: list) -> str:
 
 def log_results(results: List[Dict]) -> None:
     """
-    Prints the KT comparison results string.
+    Logs the KT results formatted.
 
-    :param results: the comparison results list.
+    :param results: the results list.
     """
     # Show final results.
     final_results = 'Final results: \n'
