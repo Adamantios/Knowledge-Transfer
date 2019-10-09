@@ -30,7 +30,7 @@ def _distillation_loss_calculator(teacher_logits: Tensor, y_student: Tensor, tem
     loss = categorical_crossentropy(y_teacher, y_student)
 
     # If supervised distillation is being performed, add supervised loss, multiplied by its importance weight.
-    if lambda_const:
+    if bool(lambda_const):
         loss = add(loss, multiply(lambda_const, categorical_crossentropy(y_true, y_pred)))
 
     return loss
@@ -118,7 +118,7 @@ def _pkt_loss_calculator(y_teacher: Tensor, y_student: Tensor, y_true: Tensor, l
 
     def cosine_similarity(tensor: Tensor) -> Tensor:
         """ Calculates the cosine similarity of a 2D array, with l2 normalization. """
-        l2_normalize(tensor)
+        l2_normalize(tensor, axis=1)
         return matmul(tensor, transpose(tensor))
 
     def to_probabilities(tensor: Tensor):
@@ -130,7 +130,7 @@ def _pkt_loss_calculator(y_teacher: Tensor, y_student: Tensor, y_true: Tensor, l
     loss = kullback_leibler_divergence(teacher_similarity, student_similarity)
 
     # If supervised transfer is being performed.
-    if lambda_const:
+    if bool(lambda_const):
         target_similarity = _calculate_supervised_similarities(y_true)
         target_similarity = to_probabilities(target_similarity)
 
