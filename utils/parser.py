@@ -89,7 +89,7 @@ def create_parser() -> ArgumentParser:
                         help='The beta 2 for the optimizer (default %(default)s).')
     parser.add_argument('-rho', type=float, default=RHO, required=False,
                         help='The rho for the optimizer (default %(default)s).')
-    parser.add_argument('-m', '--momentum', type=float, default=MOMENTUM, required=False,
+    parser.add_argument('-mm', '--momentum', type=float, default=MOMENTUM, required=False,
                         help='The momentum for the optimizer (default %(default)s).')
     parser.add_argument('-d', '--decay', type=float, default=DECAY, required=False,
                         help='The decay for the optimizer (default %(default)s).')
