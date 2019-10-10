@@ -208,15 +208,18 @@ def save_students(save_students_mode: str, results: list, out_folder: str) -> No
         best = -1
         best_model = None
         for result in results:
-            accuracy_idx = result['network'].metrics_names.index('categorical_accuracy')
-            accuracy = result['evaluation'][accuracy_idx]
-            if accuracy > best:
-                best = accuracy
-                best_model = result['network']
+            if result['method'] != 'Probabilistic Knowledge Transfer':
+                accuracy_idx = result['network'].metrics_names.index('categorical_accuracy')
+                accuracy = result['evaluation'][accuracy_idx]
+                if accuracy > best:
+                    best = accuracy
+                    best_model = result['network']
 
         model_name = join(out_folder, 'best_model.h5')
-        save_model(best_model, model_name)
-        logging.info('The best student network has been saved as {}.'.format(model_name))
+
+        if best_model is not None:
+            save_model(best_model, model_name)
+            logging.info('The best student network has been saved as {}.'.format(model_name))
 
 
 def _get_model_results(scores: list, metrics_names: list) -> str:
@@ -249,8 +252,9 @@ def log_results(results: List[Dict]) -> None:
         .format(teacher_params, student_params, teacher_params / student_params, student_params / teacher_params)
 
     for result in results:
-        final_results += result['method'] + ': \n'
-        final_results += _get_model_results(result['evaluation'], result['network'].metrics_names)
+        if result['method'] != 'Probabilistic Knowledge Transfer':
+            final_results += result['method'] + ': \n'
+            final_results += _get_model_results(result['evaluation'], result['network'].metrics_names)
     logging.info(final_results)
 
 

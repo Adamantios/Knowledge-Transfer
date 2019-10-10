@@ -34,9 +34,14 @@ def plot_results(results: List[Dict], epochs: int, save_folder: Optional[str]) -
                         filepath = join(save_folder, result['method'] + '_' + metric + '_vs_epoch' + '.png')
                         fig.savefig(filepath)
 
-    # Plot KT methods comparison for each metric, if there are more than 1 methods.
-    # Using > 2, because the results contain the teacher too.
-    if len(results) > 2:
+    # Plot KT methods comparison for each metric.
+    # Do not compare for PKT.
+    n_methods = 0
+    for result in results:
+        if result['method'] != 'Teacher' and result['method'] != 'Probabilistic Knowledge Transfer':
+            n_methods += 1
+
+    if bool(n_methods):
         linestyles = ['--', '-.', ':']
         i = 0
         for metric_index, metric in enumerate(results[0]['history'].keys()):
@@ -55,6 +60,8 @@ def plot_results(results: List[Dict], epochs: int, save_folder: Optional[str]) -
                         # Plot teacher baseline.
                         baseline = asarray([result['evaluation'][i] for _ in range(epochs)])
                         ax.plot(baseline, label=result['method'], linestyle='-')
+                    elif result['method'] == 'Probabilistic Knowledge Transfer':
+                        continue
                     else:
                         # Plot method's current metric results.
                         ax.plot(list(result['history'].values())[metric_index], label=result['method'],

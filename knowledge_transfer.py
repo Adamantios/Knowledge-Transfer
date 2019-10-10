@@ -46,14 +46,20 @@ def knowledge_transfer(method: Method, loss: LossType) -> Tuple[Model, History]:
     optimizer = initialize_optimizer(optimizer_name, learning_rate, decay, beta1, beta2, rho, momentum,
                                      clip_norm, clip_value)
 
-    # Create KT metrics and give them names.
-    kt_acc = kt_metric(categorical_accuracy, method)
-    kt_acc.__name__ = 'accuracy'
-    kt_crossentropy = kt_metric(categorical_crossentropy, method)
-    kt_crossentropy.__name__ = 'crossentropy'
+    # Create KT metrics for Distillation and give them names.
+    # PKT performs KT, but also rotates the space, thus evaluating results has no meaning,
+    # since the neurons representing the classes are not the same anymore.
+    metrics = []
+    if method == Method.DISTILLATION:
+        kt_acc = kt_metric(categorical_accuracy, method)
+        kt_acc.__name__ = 'accuracy'
+        kt_crossentropy = kt_metric(categorical_crossentropy, method)
+        kt_crossentropy.__name__ = 'crossentropy'
+        metrics.append(kt_acc)
+        metrics.append(kt_crossentropy)
 
     # Compile student.
-    student.compile(optimizer=optimizer, loss=loss, metrics=[kt_acc, kt_crossentropy])
+    student.compile(optimizer=optimizer, loss=loss, metrics=metrics)
 
     # Fit student.
     history = student.fit(x_train, y_train_concat, batch_size=batch_size, epochs=epochs,
@@ -88,7 +94,8 @@ def evaluate_results(results: list) -> None:
     for result in results:
         logging.info('Evaluating {}...'.format(result['method']))
         result['network'].compile(optimizer, mse, [categorical_accuracy, categorical_crossentropy])
-        result['evaluation'] = result['network'].evaluate(x_test, y_test, evaluation_batch_size, verbosity)
+        if result['method'] != 'Probabilistic Knowledge Transfer':
+            result['evaluation'] = result['network'].evaluate(x_test, y_test, evaluation_batch_size, verbosity)
     logging.debug(results)
 
     # Plot training information.
