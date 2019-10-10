@@ -1,4 +1,5 @@
 import logging
+from os.path import join
 from typing import Tuple, List, Union
 
 from numpy import concatenate
@@ -146,12 +147,12 @@ def run_kt_methods() -> None:
     logging.info('Evaluating results...')
     evaluate_results(results)
 
-    if save_results:
-        logging.info('Saving results...')
-        save_res(results, out_folder)
-
     logging.info('Saving student network(s)...')
     save_students(save_students_mode, results[:-1], out_folder)
+
+    if save_results:
+        logging.info('Saving results...')
+        save_res(results, join(out_folder, results_name_prefix + '_results.pkl'))
 
 
 if __name__ == '__main__':
@@ -167,6 +168,7 @@ if __name__ == '__main__':
     pkt_lambda_supervised: float = args.pkt_lambda_supervised
     save_students_mode: str = args.save_students
     save_results: bool = not args.omit_results
+    results_name_prefix: str = args.results_name_prefix
     out_folder: str = args.out_folder
     debug: bool = args.debug
     optimizer_name: str = args.optimizer
@@ -192,7 +194,7 @@ if __name__ == '__main__':
     create_path(out_folder)
 
     # Set logger up.
-    setup_logger(debug, save_results, out_folder)
+    setup_logger(debug, save_results, join(out_folder, results_name_prefix + '_output.log'))
     logging.info('\n------------------------------------------------------------------------------------------------\n')
 
     # Load dataset.

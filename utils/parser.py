@@ -12,6 +12,7 @@ PKT_LAMBDA_SUPERVISED = 1E-4
 SAVE_STUDENTS = 'best'
 SAVE_STUDENTS_CHOICES = 'all', 'best', 'none'
 SAVE_RESULTS = True
+RESULTS_NAME_PREFIX = ''
 OUT_FOLDER_NAME = 'out'
 OPTIMIZER = 'adam'
 OPTIMIZER_CHOICES = 'adam', 'rmsprop', 'sgd', 'adagrad', 'adadelta', 'adamax'
@@ -61,6 +62,8 @@ def create_parser() -> ArgumentParser:
                         help='The save mode for the final student networks. (default %(default)s).')
     parser.add_argument('-or', '--omit_results', default=not SAVE_RESULTS, required=False, action='store_true',
                         help='Whether the KT comparison results should not be saved (default %(default)s).')
+    parser.add_argument('-res', '--results_name_prefix', default=RESULTS_NAME_PREFIX, required=False, type=str,
+                        help='The prefix for the results filenames (default %(default)s).')
     parser.add_argument('-out', '--out_folder', default=OUT_FOLDER_NAME, required=False, type=str,
                         help='Path to the folder where the outputs will be stored (default %(default)s).')
     parser.add_argument('-o', '--optimizer', type=str.lower, default=OPTIMIZER, required=False,

@@ -17,13 +17,13 @@ from student_networks.cifar10_tiny_1 import cifar10_tiny_1
 OptimizerType = Union[adam, rmsprop, sgd, adagrad, adadelta, adamax]
 
 
-def setup_logger(debug: bool, save: bool, out_folder: str) -> None:
+def setup_logger(debug: bool, save: bool, filepath: str) -> None:
     """
     Sets the program's logger up.
 
-    :param out_folder: path to the output folder.
-    :param save: whether the logs should be saved to a file.
     :param debug: Whether the logger should be set in debugging mode.
+    :param save: whether the logs should be saved to a file.
+    :param filepath: the filepath for the logs.
     """
     level = logging.DEBUG if debug else logging.INFO
 
@@ -31,7 +31,7 @@ def setup_logger(debug: bool, save: bool, out_folder: str) -> None:
     root_logger = logging.getLogger()
 
     if save:
-        file_handler = logging.FileHandler(join(out_folder, 'output.log'))
+        file_handler = logging.FileHandler(filepath)
         file_handler.setFormatter(log_formatter)
         root_logger.addHandler(file_handler)
 
@@ -254,6 +254,15 @@ def log_results(results: List[Dict]) -> None:
     logging.info(final_results)
 
 
-def save_res(results, out_folder):
-    with open(join(out_folder, 'results.pkl'), 'wb') as output:
+def save_res(results: List, filepath: str) -> None:
+    """
+    Saves the results object as a pickle file, after deleting the model.
+
+    :param results: the results object to be saved.
+    :param filepath: the filepath for the pickle file to be saved.
+    """
+    for result in results:
+        del result['network']
+
+    with open(filepath, 'wb') as output:
         pickle.dump(results, output, pickle.HIGHEST_PROTOCOL)
