@@ -1,4 +1,5 @@
 import logging
+import pickle
 from os import makedirs
 from os.path import dirname, exists, isfile, join
 from typing import Union, Tuple, Any, Dict, List
@@ -251,3 +252,8 @@ def log_results(results: List[Dict]) -> None:
         final_results += result['method'] + ': \n'
         final_results += _get_model_results(result['evaluation'], result['network'].metrics_names)
     logging.info(final_results)
+
+
+def save_res(results, out_folder):
+    with open(join(out_folder, 'results.pkl'), 'wb') as output:
+        pickle.dump(results, output, pickle.HIGHEST_PROTOCOL)

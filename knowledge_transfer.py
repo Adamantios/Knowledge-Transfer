@@ -12,7 +12,7 @@ from tensorflow.python.keras.utils import to_categorical
 from core.adaptation import Method, kt_metric, kd_student_adaptation, kd_student_rewind
 from core.losses import LossType, distillation_loss, pkt_loss
 from utils.helpers import initialize_optimizer, load_data, preprocess_data, create_student, init_callbacks, \
-    setup_logger, save_students, log_results, copy_model, create_path
+    setup_logger, save_students, log_results, copy_model, create_path, save_res
 from utils.parser import create_parser
 from utils.plotter import plot_results
 
@@ -145,6 +145,10 @@ def run_kt_methods() -> None:
 
     logging.info('Evaluating results...')
     evaluate_results(results)
+
+    if save_results:
+        logging.info('Saving results...')
+        save_res(results, out_folder)
 
     logging.info('Saving student network(s)...')
     save_students(save_students_mode, results[:-1], out_folder)
