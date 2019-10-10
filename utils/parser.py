@@ -47,7 +47,7 @@ def create_parser() -> ArgumentParser:
     parser.add_argument('student', type=str, choices=STUDENT_CHOICES, help='Path to a student network.')
     parser.add_argument('dataset', type=str, choices=DATASET_CHOICES, help='The name of the dataset to be used.')
     parser.add_argument('-m', '--method', type=str.lower, nargs='+', default=METHOD, required=False,
-                        choices=METHOD_CHOICES, help='The KT method to be used. (default %(default)s).')
+                        choices=METHOD_CHOICES, help='The KT method(s) to be used. (default %(default)s).')
     parser.add_argument('-w', '--start_weights', type=str, required=False,
                         help='Filepath containing existing weights to initialize the model.')
     parser.add_argument('-t', '--temperature', default=TEMPERATURE, required=False, type=float,
