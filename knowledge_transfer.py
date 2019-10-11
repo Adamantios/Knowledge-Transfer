@@ -129,7 +129,10 @@ def evaluate_results(results: list) -> None:
     log_results(results)
 
 
-def generate_appropriate_methods(methods):
+def generate_appropriate_methods() -> List:
+    """ Generates and returns a list of the methods which need to be applied, depending on the user input. """
+    methods = []
+
     kd = {
         'name': 'Knowledge Distillation',
         'method': Method.DISTILLATION,
@@ -153,11 +156,12 @@ def generate_appropriate_methods(methods):
         if 'pkt' in kt_methods:
             methods.append(pkt)
 
+    return methods
+
 
 def run_kt_methods() -> None:
     """ Runs all the available KT methods. """
-    methods = []
-    generate_appropriate_methods(methods)
+    methods = generate_appropriate_methods()
     results = []
 
     for method in methods:
