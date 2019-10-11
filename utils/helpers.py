@@ -252,9 +252,8 @@ def log_results(results: List[Dict]) -> None:
         .format(teacher_params, student_params, teacher_params / student_params, student_params / teacher_params)
 
     for result in results:
-        if result['method'] != 'Probabilistic Knowledge Transfer':
-            final_results += result['method'] + ': \n'
-            final_results += _get_model_results(result['evaluation'], result['network'].metrics_names)
+        final_results += result['method'] + ': \n'
+        final_results += _get_model_results(result['evaluation'], result['network'].metrics_names)
     logging.info(final_results)
 
 

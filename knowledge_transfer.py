@@ -3,6 +3,8 @@ from os.path import join
 from typing import Tuple, List, Union
 
 from numpy import concatenate
+from sklearn.metrics import accuracy_score, log_loss
+from sklearn.neighbors import KNeighborsClassifier
 from tensorflow.python.keras import Model
 from tensorflow.python.keras.callbacks import History
 from tensorflow.python.keras.losses import categorical_crossentropy, mse
@@ -96,6 +98,19 @@ def evaluate_results(results: list) -> None:
         result['network'].compile(optimizer, mse, [categorical_accuracy, categorical_crossentropy])
         if result['method'] != 'Probabilistic Knowledge Transfer':
             result['evaluation'] = result['network'].evaluate(x_test, y_test, evaluation_batch_size, verbosity)
+        else:
+            # Get pkt features and pass them through a knn classifier, in order to calculate accuracy.
+            pkt_features_train = result['network'].predict(x_train, evaluation_batch_size, verbosity)
+            pkt_features_test = result['network'].predict(x_test, evaluation_batch_size, verbosity)
+            knn = KNeighborsClassifier(n_neighbors=5, n_jobs=-1)
+            knn.fit(pkt_features_train, y_train)
+            y_pred = knn.predict(pkt_features_test)
+            result['evaluation'] = [
+                result['network'].evaluate(x_test, y_test, evaluation_batch_size, verbosity)[0],
+                accuracy_score(y_test, y_pred),
+                log_loss(y_test, y_pred)
+            ]
+
     logging.debug(results)
 
     # Plot training information.
