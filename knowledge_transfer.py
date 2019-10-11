@@ -63,6 +63,14 @@ def knowledge_transfer(method: Method, loss: LossType) -> Tuple[Model, History]:
     # Compile student.
     student.compile(optimizer=optimizer, loss=loss, metrics=metrics)
 
+    # Initialize callbacks list.
+    logging.debug('Initializing Callbacks...')
+    if method == Method.DISTILLATION:
+        callbacks_list = init_callbacks('val_accuracy', lr_patience, lr_decay, lr_min, early_stopping_patience,
+                                        verbosity)
+    else:
+        callbacks_list = init_callbacks('val_loss', lr_patience, lr_decay, lr_min, early_stopping_patience, verbosity)
+
     # Fit student.
     history = student.fit(x_train, y_train_concat, batch_size=batch_size, epochs=epochs,
                           validation_data=(x_test, y_test_concat),
@@ -102,7 +110,7 @@ def evaluate_results(results: list) -> None:
             # Get pkt features and pass them through a knn classifier, in order to calculate accuracy.
             pkt_features_train = result['network'].predict(x_train, evaluation_batch_size, verbosity)
             pkt_features_test = result['network'].predict(x_test, evaluation_batch_size, verbosity)
-            knn = KNeighborsClassifier(n_neighbors=5, n_jobs=-1)
+            knn = KNeighborsClassifier(n_jobs=-1)
             knn.fit(pkt_features_train, y_train)
             y_pred = knn.predict(pkt_features_test)
             result['evaluation'] = [
@@ -237,10 +245,6 @@ if __name__ == '__main__':
     # Concatenate teacher's outputs with true labels.
     y_train_concat = concatenate([y_train, y_teacher_train], axis=1)
     y_test_concat = concatenate([y_test, y_teacher_test], axis=1)
-
-    # Initialize callbacks list.
-    logging.debug('Initializing Callbacks...')
-    callbacks_list = init_callbacks(lr_patience, lr_decay, lr_min, early_stopping_patience, verbosity)
 
     # Run kt.
     logging.info('Starting KT method(s)...')

@@ -133,11 +133,12 @@ def initialize_optimizer(optimizer_name: str, learning_rate: float = None, decay
     return opt
 
 
-def init_callbacks(lr_patience: int, lr_decay: float, lr_min: float, early_stopping_patience: int,
+def init_callbacks(monitor: str, lr_patience: int, lr_decay: float, lr_min: float, early_stopping_patience: int,
                    verbosity: int) -> []:
     """
     Initializes callbacks for the training procedure.
 
+    :param monitor: the metric to monitor.
     :param lr_patience: the number of epochs to wait before decaying the learning rate. Set it to 0 to ignore decaying.
     :param lr_decay: the decay of the learning rate.
     :param lr_min: the minimum learning rate to be reached.
@@ -148,12 +149,12 @@ def init_callbacks(lr_patience: int, lr_decay: float, lr_min: float, early_stopp
     callbacks = []
 
     if lr_decay > 0 or lr_patience == 0:
-        learning_rate_reduction = ReduceLROnPlateau(monitor='val_accuracy', patience=lr_patience, verbose=verbosity,
+        learning_rate_reduction = ReduceLROnPlateau(monitor=monitor, patience=lr_patience, verbose=verbosity,
                                                     factor=lr_decay, min_lr=lr_min)
         callbacks.append(learning_rate_reduction)
 
     if early_stopping_patience > 0:
-        early_stopping = EarlyStopping(monitor='val_accuracy', patience=early_stopping_patience, min_delta=.0002,
+        early_stopping = EarlyStopping(monitor=monitor, patience=early_stopping_patience, min_delta=.0002,
                                        mode='max', restore_best_weights=True, verbose=verbosity)
         callbacks.append(early_stopping)
 
