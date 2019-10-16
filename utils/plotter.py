@@ -62,6 +62,10 @@ def plot_results(results: List[Dict], epochs: int, save_folder: Optional[str]) -
                         ax.plot(baseline, label=result['method'], linestyle='-')
                     elif result['method'] == 'Probabilistic Knowledge Transfer':
                         continue
+                    elif result['method'] == 'PKT plus Distillation':
+                        # Plot method's current metric results.
+                        ax.plot(list(result['history'].values())[metric_index + 4], label=result['method'],
+                                linestyle=next(linestyles_pool))
                     else:
                         # Plot method's current metric results.
                         ax.plot(list(result['history'].values())[metric_index], label=result['method'],
