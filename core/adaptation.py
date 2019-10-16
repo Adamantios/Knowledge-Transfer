@@ -57,7 +57,7 @@ def kd_student_adaptation(model: Model, temperature: float) -> Model:
     else:
         probabilities_t = Activation(softmax_with_temperature(temperature), name='softmax_with_temperature')(logits)
 
-    outputs = concatenate([probabilities, probabilities_t])
+    outputs = concatenate([probabilities, probabilities_t], name='concatenate')
 
     return Model(model.input, outputs, name=model.name)
 
