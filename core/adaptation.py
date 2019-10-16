@@ -4,7 +4,7 @@ from typing import Callable, Tuple
 from tensorflow import Tensor, divide, identity
 from tensorflow.python import shape, int32, cast
 from tensorflow.python.keras import Model
-from tensorflow.python.keras.layers import Activation, concatenate
+from tensorflow.python.keras.layers import Activation, concatenate, Flatten, Dense
 
 MetricType = Callable[[Tensor, Tensor], Tensor]
 
@@ -12,6 +12,7 @@ MetricType = Callable[[Tensor, Tensor], Tensor]
 class Method(Enum):
     DISTILLATION = auto()
     PKT = auto()
+    PKT_PLUS_DISTILLATION = auto()
 
 
 def softmax_with_temperature(temperature: float) -> Callable[[Tensor], Tensor]:
@@ -81,6 +82,44 @@ def kd_student_rewind(model: Model) -> Model:
     return model
 
 
+def pkt_plus_kd_student_adaptation(model: Model, temperature: float) -> Model:
+    """
+    Adapts a student model for distillation.
+
+    :param model: the model to be adapted for distillation.
+    :param temperature: the temperature for the distillation process.
+    :return: the adapted Model.
+    """
+    model = kd_student_adaptation(model, temperature)
+
+    intermediate_layer = model.layers[-6]
+    logits = intermediate_layer.output
+    x = Flatten(name='flatten_out2')(logits)
+    intermediate_outputs = Dense(model.output_shape[1], activation='softmax', name='softmax_out2')(x)
+
+    return Model(model.input, [model.output, intermediate_outputs], name=model.name)
+
+
+def pkt_plus_kd_rewind(model: Model) -> Model:
+    """
+    Rewinds an adapted student model for distillation, to its normal state.
+
+    :param model: the model to be rewind.
+    :return: the normal student Model.
+    """
+    # Get things we will need later.
+    optimizer, loss, metrics = model.optimizer, model.loss[0], model.metrics
+
+    # Get normal softmax probabilities only.
+    outputs = model.layers[-5].output
+
+    # Create new model and compile it.
+    model = Model(model.input, outputs, name=model.name)
+    model.compile(optimizer, loss, metrics)
+
+    return model
+
+
 def split_targets(y_true: Tensor, y_pred: Tensor, method: Method) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
     """
     Split concatenated hard targets / logits and hard predictions / soft predictions.
@@ -98,7 +137,7 @@ def split_targets(y_true: Tensor, y_pred: Tensor, method: Method) -> Tuple[Tenso
     # Get hard labels and logits.
     y_true, teacher_logits = y_true[:, :split_point], y_true[:, split_point:]
 
-    if method == Method.DISTILLATION:
+    if method == Method.DISTILLATION or method == Method.PKT_PLUS_DISTILLATION:
         y_pred, student_output = y_pred[:, :split_point], y_pred[:, split_point:]
     else:
         student_output = identity(y_pred)

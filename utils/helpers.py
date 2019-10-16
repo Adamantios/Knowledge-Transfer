@@ -12,6 +12,8 @@ from tensorflow.python.keras.models import clone_model
 from tensorflow.python.keras.optimizers import adam, rmsprop, sgd, adagrad, adadelta, adamax
 from tensorflow.python.keras.saving import save_model
 
+from core.adaptation import Method
+from core.losses import distillation_loss, pkt_loss
 from student_networks.cifar10_tiny_1 import cifar10_tiny_1
 
 OptimizerType = Union[adam, rmsprop, sgd, adagrad, adadelta, adamax]
@@ -270,3 +272,50 @@ def save_res(results: List, filepath: str) -> None:
 
     with open(filepath, 'wb') as output:
         pickle.dump(results, output, pickle.HIGHEST_PROTOCOL)
+
+
+def generate_appropriate_methods(kt_methods: Union[str, List[str]], temperature: float, kd_lambda_supervised: float,
+                                 pkt_lambda_supervised: float) -> List[dict]:
+    """
+    Generates and returns a list of the methods which need to be applied, depending on the user input.
+    
+    :param kt_methods: the methods to be used for KT. 
+    :param temperature: the temperature for the distillation.
+    :param kd_lambda_supervised: the weight for supervised KD loss.
+    :param pkt_lambda_supervised: the weight for supervised PKT loss.
+    :return: a list of dicts containing all the methods, formatted appropriately.
+    """""
+    methods = []
+
+    kd = {
+        'name': 'Knowledge Distillation',
+        'method': Method.DISTILLATION,
+        'loss': distillation_loss(temperature, kd_lambda_supervised)
+    }
+
+    pkt = {
+        'name': 'Probabilistic Knowledge Transfer',
+        'method': Method.PKT,
+        'loss': pkt_loss(pkt_lambda_supervised)
+    }
+
+    pkt_plus_distillation = {
+        'name': 'PKT plus Distillation',
+        'method': Method.PKT_PLUS_DISTILLATION,
+        'loss': [distillation_loss(temperature, kd_lambda_supervised), pkt_loss(pkt_lambda_supervised)]
+    }
+
+    if isinstance(kt_methods, str):
+        if kt_methods == 'distillation':
+            methods.append(kd)
+        elif kt_methods == 'pkt':
+            methods.append(pkt)
+    else:
+        if 'distillation' in kt_methods:
+            methods.append(kd)
+        if 'pkt' in kt_methods:
+            methods.append(pkt)
+        if 'pkt + distillation' in kt_methods:
+            methods.append(pkt_plus_distillation)
+
+    return methods

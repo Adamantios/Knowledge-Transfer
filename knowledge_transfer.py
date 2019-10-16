@@ -12,10 +12,11 @@ from tensorflow.python.keras.metrics import categorical_accuracy
 from tensorflow.python.keras.saving import load_model
 from tensorflow.python.keras.utils import to_categorical
 
-from core.adaptation import Method, kt_metric, kd_student_adaptation, kd_student_rewind
-from core.losses import LossType, distillation_loss, pkt_loss
+from core.adaptation import Method, kt_metric, kd_student_adaptation, kd_student_rewind, pkt_plus_kd_student_adaptation, \
+    pkt_plus_kd_rewind
+from core.losses import LossType
 from utils.helpers import initialize_optimizer, load_data, preprocess_data, create_student, init_callbacks, \
-    setup_logger, save_students, log_results, copy_model, create_path, save_res
+    setup_logger, save_students, log_results, copy_model, create_path, save_res, generate_appropriate_methods
 from utils.parser import create_parser
 from utils.plotter import plot_results
 
@@ -38,9 +39,11 @@ def knowledge_transfer(method: Method, loss: LossType) -> Tuple[Model, History]:
     logging.info('Creating student...')
     student = create_student(student_name, x_train.shape[1:], n_classes, start_weights)
 
-    # Adapt student for distillation if necessary.
+    # Adapt student, if necessary.
     if method == Method.DISTILLATION:
         student = kd_student_adaptation(student, temperature)
+    if method == Method.PKT_PLUS_DISTILLATION:
+        student = pkt_plus_kd_student_adaptation(student, temperature)
 
     logging.debug('Configuring student...')
 
@@ -52,7 +55,7 @@ def knowledge_transfer(method: Method, loss: LossType) -> Tuple[Model, History]:
     # PKT performs KT, but also rotates the space, thus evaluating results has no meaning,
     # since the neurons representing the classes are not the same anymore.
     metrics = []
-    if method == Method.DISTILLATION:
+    if method == Method.DISTILLATION or method == Method.PKT_PLUS_DISTILLATION:
         kt_acc = kt_metric(categorical_accuracy, method)
         kt_acc.__name__ = 'accuracy'
         kt_crossentropy = kt_metric(categorical_crossentropy, method)
@@ -60,25 +63,37 @@ def knowledge_transfer(method: Method, loss: LossType) -> Tuple[Model, History]:
         metrics.append(kt_acc)
         metrics.append(kt_crossentropy)
 
-    # Compile student.
-    student.compile(optimizer=optimizer, loss=loss, metrics=metrics)
+        # Compile student.
+        student.compile(optimizer, loss, {'concatenate': metrics})
+    else:
+        student.compile(optimizer, loss, {'softmax': metrics})
 
     # Initialize callbacks list.
     logging.debug('Initializing Callbacks...')
     if method == Method.DISTILLATION:
         callbacks_list = init_callbacks('val_accuracy', lr_patience, lr_decay, lr_min, early_stopping_patience,
                                         verbosity)
-    else:
+    elif method == Method.PKT:
         callbacks_list = init_callbacks('val_loss', lr_patience, lr_decay, lr_min, early_stopping_patience, verbosity)
+    else:
+        callbacks_list = init_callbacks('val_concatenate_accuracy', lr_patience, lr_decay, lr_min,
+                                        early_stopping_patience, verbosity)
 
     # Fit student.
-    history = student.fit(x_train, y_train_concat, batch_size=batch_size, epochs=epochs,
-                          validation_data=(x_test, y_test_concat),
-                          callbacks=callbacks_list)
+    if method == Method.PKT_PLUS_DISTILLATION:
+        history = student.fit(x_train, [y_train_concat, y_train_concat], batch_size=batch_size, epochs=epochs,
+                              validation_data=(x_test, [y_test_concat, y_test_concat]),
+                              callbacks=callbacks_list)
+    else:
+        history = student.fit(x_train, y_train_concat, batch_size=batch_size, epochs=epochs,
+                              validation_data=(x_test, y_test_concat),
+                              callbacks=callbacks_list)
 
     # Rewind student to normal, if necessary.
     if method == Method.DISTILLATION:
         student = kd_student_rewind(student)
+    if method == Method.PKT_PLUS_DISTILLATION:
+        student = pkt_plus_kd_rewind(student)
 
     return copy_model(student), history
 
@@ -129,39 +144,9 @@ def evaluate_results(results: list) -> None:
     log_results(results)
 
 
-def generate_appropriate_methods() -> List:
-    """ Generates and returns a list of the methods which need to be applied, depending on the user input. """
-    methods = []
-
-    kd = {
-        'name': 'Knowledge Distillation',
-        'method': Method.DISTILLATION,
-        'loss': distillation_loss(temperature, kd_lambda_supervised)
-    }
-
-    pkt = {
-        'name': 'Probabilistic Knowledge Transfer',
-        'method': Method.PKT,
-        'loss': pkt_loss(pkt_lambda_supervised)
-    }
-
-    if isinstance(kt_methods, str):
-        if kt_methods == 'distillation':
-            methods.append(kd)
-        elif kt_methods == 'pkt':
-            methods.append(pkt)
-    else:
-        if 'distillation' in kt_methods:
-            methods.append(kd)
-        if 'pkt' in kt_methods:
-            methods.append(pkt)
-
-    return methods
-
-
 def run_kt_methods() -> None:
     """ Runs all the available KT methods. """
-    methods = generate_appropriate_methods()
+    methods = generate_appropriate_methods(kt_methods, temperature, kd_lambda_supervised, pkt_lambda_supervised)
     results = []
 
     for method in methods:
@@ -254,3 +239,5 @@ if __name__ == '__main__':
     logging.info('Starting KT method(s)...')
     run_kt_methods()
     logging.info('Finished!')
+
+    # TODO evaluate on test data and split train data for the validation set.
