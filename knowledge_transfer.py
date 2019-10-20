@@ -12,11 +12,12 @@ from tensorflow.python.keras.metrics import categorical_accuracy
 from tensorflow.python.keras.saving import load_model
 from tensorflow.python.keras.utils import to_categorical
 
-from core.adaptation import Method, kt_metric, kd_student_adaptation, kd_student_rewind, pkt_plus_kd_student_adaptation, \
-    pkt_plus_kd_rewind
+from core.adaptation import Method, kt_metric, kd_student_adaptation, kd_student_rewind, \
+    pkt_plus_kd_student_adaptation, pkt_plus_kd_rewind
 from core.losses import LossType
 from utils.helpers import initialize_optimizer, load_data, preprocess_data, create_student, init_callbacks, \
-    setup_logger, save_students, log_results, copy_model, create_path, save_res, generate_appropriate_methods
+    save_students, log_results, copy_model, create_path, save_res, generate_appropriate_methods
+from utils.logging import KTLogger
 from utils.parser import create_parser
 from utils.plotter import plot_results
 
@@ -36,7 +37,7 @@ def knowledge_transfer(method: Method, loss: LossType) -> Tuple[Model, History]:
     :return: Tuple containing a student Keras model and its training History object.
     """
     # Create student model.
-    logging.info('Creating student...')
+    kt_logging.info('Creating student...')
     student = create_student(student_name, x_train.shape[1:], n_classes, start_weights)
 
     # Adapt student, if necessary.
@@ -45,7 +46,7 @@ def knowledge_transfer(method: Method, loss: LossType) -> Tuple[Model, History]:
     if method == Method.PKT_PLUS_DISTILLATION:
         student = pkt_plus_kd_student_adaptation(student, temperature)
 
-    logging.debug('Configuring student...')
+    kt_logging.debug('Configuring student...')
 
     # Create optimizer.
     optimizer = initialize_optimizer(optimizer_name, learning_rate, decay, beta1, beta2, rho, momentum,
@@ -69,7 +70,7 @@ def knowledge_transfer(method: Method, loss: LossType) -> Tuple[Model, History]:
         student.compile(optimizer, loss, {'softmax': metrics})
 
     # Initialize callbacks list.
-    logging.debug('Initializing Callbacks...')
+    kt_logging.debug('Initializing Callbacks...')
     if method == Method.DISTILLATION:
         callbacks_list = init_callbacks('val_accuracy', lr_patience, lr_decay, lr_min, early_stopping_patience,
                                         verbosity)
@@ -117,7 +118,7 @@ def evaluate_results(results: list) -> None:
                                      clip_norm, clip_value)
 
     for result in results:
-        logging.info('Evaluating {}...'.format(result['method']))
+        kt_logging.info('Evaluating {}...'.format(result['method']))
         result['network'].compile(optimizer, mse, [categorical_accuracy, categorical_crossentropy])
         if result['method'] != 'Probabilistic Knowledge Transfer':
             result['evaluation'] = result['network'].evaluate(x_test, y_test, evaluation_batch_size, verbosity)
@@ -134,7 +135,7 @@ def evaluate_results(results: list) -> None:
                 log_loss(y_test, y_pred)
             ]
 
-    logging.debug(results)
+    kt_logging.debug(results)
 
     # Plot training information.
     save_folder = out_folder if save_results else None
@@ -150,7 +151,7 @@ def run_kt_methods() -> None:
     results = []
 
     for method in methods:
-        logging.info('Performing {}...'.format(method['name']))
+        kt_logging.info('Performing {}...'.format(method['name']))
         student, history = knowledge_transfer(method['method'], method['loss'])
         # TODO model_path = os.path.join(tempfile.gettempdir(), next(tempfile._get_candidate_names()) + '.h5')
         #  and save student model there, when we stop needing it,
@@ -163,14 +164,14 @@ def run_kt_methods() -> None:
             'evaluation': None
         })
 
-    logging.info('Evaluating results...')
+    kt_logging.info('Evaluating results...')
     evaluate_results(results)
 
-    logging.info('Saving student network(s)...')
+    kt_logging.info('Saving student network(s)...')
     save_students(save_students_mode, results[:-1], out_folder)
 
     if save_results:
-        logging.info('Saving results...')
+        kt_logging.info('Saving results...')
         save_res(results, join(out_folder, results_name_prefix + '_results.pkl'))
 
 
@@ -213,21 +214,23 @@ if __name__ == '__main__':
     create_path(out_folder)
 
     # Set logger up.
-    setup_logger(debug, save_results, join(out_folder, results_name_prefix + '_output.log'))
-    logging.info('\n------------------------------------------------------------------------------------------------\n')
+    kt_logger = KTLogger(join(out_folder, results_name_prefix + '_output.log'))
+    kt_logger.setup_logger(debug, save_results)
+    kt_logging = logging.getLogger('KT')
+    kt_logging.info('\n---------------------------------------------------------------------------------------------\n')
 
     # Load dataset.
-    logging.info('Loading dataset...')
+    kt_logging.info('Loading dataset...')
     ((x_train, y_train), (x_test, y_test)), n_classes = load_data(dataset)
 
     # Preprocess data.
-    logging.info('Preprocessing data...')
+    kt_logging.info('Preprocessing data...')
     x_train, x_test = preprocess_data(dataset, x_train, x_test)
     y_train = to_categorical(y_train, n_classes)
     y_test = to_categorical(y_test, n_classes)
 
     # Get teacher's outputs.
-    logging.info('Getting teacher\'s predictions...')
+    kt_logging.info('Getting teacher\'s predictions...')
     y_teacher_train = teacher.predict(x_train, evaluation_batch_size, verbosity)
     y_teacher_test = teacher.predict(x_test, evaluation_batch_size, verbosity)
 
@@ -236,8 +239,13 @@ if __name__ == '__main__':
     y_test_concat = concatenate([y_test, y_teacher_test], axis=1)
 
     # Run kt.
-    logging.info('Starting KT method(s)...')
+    kt_logging.info('Starting KT method(s)...')
     run_kt_methods()
-    logging.info('Finished!')
+
+    # Show close message.
+    kt_logging.info('Finished!')
+
+    # Close logger.
+    kt_logger.close_logger()
 
     # TODO evaluate on test data and split train data for the validation set.

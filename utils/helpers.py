@@ -19,30 +19,6 @@ from student_networks.cifar10_tiny_1 import cifar10_tiny_1
 OptimizerType = Union[adam, rmsprop, sgd, adagrad, adadelta, adamax]
 
 
-def setup_logger(debug: bool, save: bool, filepath: str) -> None:
-    """
-    Sets the program's logger up.
-
-    :param debug: Whether the logger should be set in debugging mode.
-    :param save: whether the logs should be saved to a file.
-    :param filepath: the filepath for the logs.
-    """
-    level = logging.DEBUG if debug else logging.INFO
-
-    log_formatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
-    root_logger = logging.getLogger()
-
-    if save:
-        file_handler = logging.FileHandler(filepath)
-        file_handler.setFormatter(log_formatter)
-        root_logger.addHandler(file_handler)
-
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(log_formatter)
-    root_logger.addHandler(console_handler)
-    root_logger.setLevel(level)
-
-
 def load_data(dataset: str) -> [Tuple[ndarray, ndarray], Tuple[Any, ndarray], int]:
     """
     Loads the dataset.
@@ -201,11 +177,14 @@ def save_students(save_students_mode: str, results: list, out_folder: str) -> No
     :param results: the KT results.
     :param out_folder: the folder in which the student networks will be saved.
     """
+    # Get project logger.
+    kt_logging = logging.getLogger('KT')
+
     if save_students_mode == 'all':
         for result in results:
             model_name = join(out_folder, result['method'] + '_model.h5')
             save_model(result['network'], model_name)
-            logging.info('Student network has been saved as {}.'.format(model_name))
+            kt_logging.info('Student network has been saved as {}.'.format(model_name))
 
     elif save_students_mode == 'best':
         best = -1
@@ -222,7 +201,7 @@ def save_students(save_students_mode: str, results: list, out_folder: str) -> No
 
         if best_model is not None:
             save_model(best_model, model_name)
-            logging.info('The best student network has been saved as {}.'.format(model_name))
+            kt_logging.info('The best student network has been saved as {}.'.format(model_name))
 
 
 def _get_model_results(scores: list, metrics_names: list) -> str:
@@ -246,6 +225,9 @@ def log_results(results: List[Dict]) -> None:
 
     :param results: the results list.
     """
+    # Get project logger.
+    kt_logging = logging.getLogger('KT')
+
     # Show final results.
     final_results = 'Final results: \n'
 
@@ -257,7 +239,7 @@ def log_results(results: List[Dict]) -> None:
     for result in results:
         final_results += result['method'] + ': \n'
         final_results += _get_model_results(result['evaluation'], result['network'].metrics_names)
-    logging.info(final_results)
+    kt_logging.info(final_results)
 
 
 def save_res(results: List, filepath: str) -> None:
