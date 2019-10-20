@@ -4,8 +4,8 @@ from argparse import ArgumentParser
 
 STUDENT_CHOICES = {'cifar10_tiny_1'}
 DATASET_CHOICES = {'cifar10', 'cifar100'}
-METHOD = ['distillation', 'pkt', 'pkt + distillation']
-METHOD_CHOICES = {'distillation', 'pkt', 'pkt + distillation'}
+METHOD = ['distillation', 'pkt', 'pkt+distillation']
+METHOD_CHOICES = {'distillation', 'pkt', 'pkt+distillation'}
 TEMPERATURE = 2
 KD_LAMBDA_SUPERVISED = 0.1
 PKT_LAMBDA_SUPERVISED = 1E-4
