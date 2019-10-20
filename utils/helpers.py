@@ -292,6 +292,8 @@ def generate_appropriate_methods(kt_methods: Union[str, List[str]], temperature:
             methods.append(kd)
         elif kt_methods == 'pkt':
             methods.append(pkt)
+        elif kt_methods == 'pkt+distillation':
+            methods.append(pkt_plus_distillation)
     else:
         if 'distillation' in kt_methods:
             methods.append(kd)
