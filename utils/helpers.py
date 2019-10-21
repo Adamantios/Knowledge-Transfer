@@ -266,7 +266,7 @@ def generate_appropriate_methods(kt_methods: Union[str, List[str]], temperature:
     :param kd_lambda_supervised: the weight for supervised KD loss.
     :param pkt_lambda_supervised: the weight for supervised PKT loss.
     :return: a list of dicts containing all the methods, formatted appropriately.
-    """""
+    """
     methods = []
 
     kd = {
