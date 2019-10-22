@@ -9,6 +9,9 @@ METHOD_CHOICES = {'distillation', 'pkt', 'pkt+distillation'}
 TEMPERATURE = 2
 KD_LAMBDA_SUPERVISED = 0.1
 PKT_LAMBDA_SUPERVISED = 1E-4
+K = 5
+KD_IMPORTANCE_WEIGHT = 1
+PKT_IMPORTANCE_WEIGHT = 1
 SAVE_STUDENTS = 'best'
 SAVE_STUDENTS_CHOICES = 'all', 'best', 'none'
 SAVE_RESULTS = True
@@ -57,6 +60,12 @@ def create_parser() -> ArgumentParser:
                         help='The lambda value for the KD supervised term (default %(default)s).')
     parser.add_argument('-pktl', '--pkt_lambda_supervised', default=PKT_LAMBDA_SUPERVISED, required=False, type=float,
                         help='The lambda value for the PKT supervised term (default %(default)s).')
+    parser.add_argument('-k', '--neighbors', default=K, required=False, type=int,
+                        help='The number of neighbors for the PKT method evaluation (default %(default)s).')
+    parser.add_argument('-kdw', '--kd_importance_weight', default=KD_IMPORTANCE_WEIGHT, required=False, type=float,
+                        help='The importance weight for the KD loss, if method is PKT plus KD (default %(default)s).')
+    parser.add_argument('-pktw', '--pkt_importance_weight', default=PKT_IMPORTANCE_WEIGHT, required=False, type=float,
+                        help='The importance weight for the PKT loss, if method is PKT plus KD (default %(default)s).')
     parser.add_argument('-s', '--save_students', type=str.lower, default=SAVE_STUDENTS, required=False,
                         choices=SAVE_STUDENTS_CHOICES,
                         help='The save mode for the final student networks. (default %(default)s).')

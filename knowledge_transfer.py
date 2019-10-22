@@ -55,19 +55,23 @@ def knowledge_transfer(method: Method, loss: LossType) -> Tuple[Model, History]:
     # Create KT metrics for Distillation and give them names.
     # PKT performs KT, but also rotates the space, thus evaluating results has no meaning,
     # since the neurons representing the classes are not the same anymore.
-    metrics = []
+    metrics = {}
     if method == Method.DISTILLATION or method == Method.PKT_PLUS_DISTILLATION:
         kt_acc = kt_metric(categorical_accuracy, method)
         kt_acc.__name__ = 'accuracy'
         kt_crossentropy = kt_metric(categorical_crossentropy, method)
         kt_crossentropy.__name__ = 'crossentropy'
-        metrics.append(kt_acc)
-        metrics.append(kt_crossentropy)
-
-        # Compile student.
-        student.compile(optimizer, loss, {'concatenate': metrics})
+        metrics['concatenate'] = [kt_acc, kt_crossentropy]
     else:
-        student.compile(optimizer, loss, {'softmax': metrics})
+        metrics['softmax'] = []
+
+    # Create importance weights for the different losses if method is PKT_PLUS_DISTILLATION.
+    weights = None
+    if method == Method.PKT_PLUS_DISTILLATION:
+        weights = [kd_importance_weight, pkt_importance_weight]
+
+    # Compile student.
+    student.compile(optimizer, loss, metrics, weights)
 
     # Initialize callbacks list.
     kt_logging.debug('Initializing Callbacks...')
@@ -126,7 +130,7 @@ def evaluate_results(results: list) -> None:
             # Get pkt features and pass them through a knn classifier, in order to calculate accuracy.
             pkt_features_train = result['network'].predict(x_train, evaluation_batch_size, verbosity)
             pkt_features_test = result['network'].predict(x_test, evaluation_batch_size, verbosity)
-            knn = KNeighborsClassifier(n_jobs=-1)
+            knn = KNeighborsClassifier(k, n_jobs=-1)
             knn.fit(pkt_features_train, y_train)
             y_pred = knn.predict(pkt_features_test)
             result['evaluation'] = [
@@ -186,6 +190,9 @@ if __name__ == '__main__':
     temperature: float = args.temperature
     kd_lambda_supervised: float = args.kd_lambda_supervised
     pkt_lambda_supervised: float = args.pkt_lambda_supervised
+    k: int = args.neighbors
+    kd_importance_weight: float = args.kd_importance_weight
+    pkt_importance_weight: float = args.pkt_importance_weight
     save_students_mode: str = args.save_students
     save_results: bool = not args.omit_results
     results_name_prefix: str = args.results_name_prefix
