@@ -6,6 +6,7 @@ from typing import Tuple, List, Union
 
 from numpy import concatenate
 from sklearn.metrics import accuracy_score, log_loss
+from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
 from tensorflow.python.keras import Model
 from tensorflow.python.keras.callbacks import History
@@ -96,11 +97,11 @@ def knowledge_transfer(method: Method, loss: LossType, custom_objects: dict) -> 
     # Fit student.
     if method == Method.PKT_PLUS_DISTILLATION:
         history = student.fit(x_train, [y_train_concat, y_train_concat], batch_size=batch_size, epochs=epochs,
-                              validation_data=(x_test, [y_test_concat, y_test_concat]),
+                              validation_data=(x_val, [y_val_concat, y_val_concat]),
                               callbacks=callbacks_list)
     else:
         history = student.fit(x_train, y_train_concat, batch_size=batch_size, epochs=epochs,
-                              validation_data=(x_test, y_test_concat),
+                              validation_data=(x_val, y_val_concat),
                               callbacks=callbacks_list)
 
     if exists(tmp_model_path):
@@ -252,15 +253,17 @@ if __name__ == '__main__':
     x_train, x_test = preprocess_data(dataset, x_train, x_test)
     y_train = to_categorical(y_train, n_classes)
     y_test = to_categorical(y_test, n_classes)
+    # Split data to train and val sets.
+    x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.3, random_state=0)
 
     # Get teacher's outputs.
     kt_logging.info('Getting teacher\'s predictions...')
     y_teacher_train = teacher.predict(x_train, evaluation_batch_size, verbosity)
-    y_teacher_test = teacher.predict(x_test, evaluation_batch_size, verbosity)
+    y_teacher_val = teacher.predict(x_val, evaluation_batch_size, verbosity)
 
     # Concatenate teacher's outputs with true labels.
     y_train_concat = concatenate([y_train, y_teacher_train], axis=1)
-    y_test_concat = concatenate([y_test, y_teacher_test], axis=1)
+    y_val_concat = concatenate([y_val, y_teacher_val], axis=1)
 
     # Run kt.
     kt_logging.info('Starting KT method(s)...')
@@ -271,5 +274,3 @@ if __name__ == '__main__':
 
     # Close logger.
     kt_logger.close_logger()
-
-    # TODO evaluate on test data and split train data for the validation set.
