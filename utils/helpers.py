@@ -12,7 +12,7 @@ from tensorflow.python.keras.models import clone_model
 from tensorflow.python.keras.optimizers import adam, rmsprop, sgd, adagrad, adadelta, adamax
 from tensorflow.python.keras.saving import save_model
 
-from core.adaptation import Method, softmax_with_temperature
+from core.adaptation import Method
 from core.losses import distillation_loss, pkt_loss
 from student_networks.cifar10_tiny_1 import cifar10_tiny_1
 
@@ -112,7 +112,7 @@ def initialize_optimizer(optimizer_name: str, learning_rate: float = None, decay
 
 
 def init_callbacks(monitor: str, lr_patience: int, lr_decay: float, lr_min: float, early_stopping_patience: int,
-                   verbosity: int, model_path: str, custom_objects: dict) -> []:
+                   verbosity: int, model_path: str) -> []:
     """
     Initializes callbacks for the training procedure.
 
@@ -123,13 +123,12 @@ def init_callbacks(monitor: str, lr_patience: int, lr_decay: float, lr_min: floa
     :param early_stopping_patience: the number of epochs to wait before early stopping.
     :param verbosity: the verbosity of the callbacks.
     :param model_path: path to the model to be saved. Pass None, in order to not save the best model.
-    :param custom_objects: dictionary containing the custom objects of the model.
     :return: the callbacks list.
     """
     callbacks = []
 
     if model_path is not None:
-        callbacks.append(ModelCheckpoint(model_path, monitor, save_best_only=True, custom_objects=custom_objects))
+        callbacks.append(ModelCheckpoint(model_path, monitor, save_weights_only=True, save_best_only=True))
 
     if lr_decay > 0 or lr_patience == 0:
         learning_rate_reduction = ReduceLROnPlateau(monitor=monitor, patience=lr_patience, verbose=verbosity,
@@ -277,31 +276,19 @@ def generate_appropriate_methods(kt_methods: Union[str, List[str]], temperature:
     kd = {
         'name': 'Knowledge Distillation',
         'method': Method.DISTILLATION,
-        'loss': distillation_loss(temperature, kd_lambda_supervised),
-        'custom_objects':
-            {
-                'activation': softmax_with_temperature(temperature),
-                'distillation': distillation_loss(temperature, kd_lambda_supervised)
-            }
+        'loss': distillation_loss(temperature, kd_lambda_supervised)
     }
 
     pkt = {
         'name': 'Probabilistic Knowledge Transfer',
         'method': Method.PKT,
-        'loss': pkt_loss(pkt_lambda_supervised),
-        'custom_objects': {'pkt': pkt_loss(pkt_lambda_supervised)}
+        'loss': pkt_loss(pkt_lambda_supervised)
     }
 
     pkt_plus_distillation = {
         'name': 'PKT plus Distillation',
         'method': Method.PKT_PLUS_DISTILLATION,
-        'loss': [distillation_loss(temperature, kd_lambda_supervised), pkt_loss(pkt_lambda_supervised)],
-        'custom_objects':
-            {
-                'activation': softmax_with_temperature(temperature),
-                'distillation': distillation_loss(temperature, kd_lambda_supervised),
-                'pkt': pkt_loss(pkt_lambda_supervised)
-            }
+        'loss': [distillation_loss(temperature, kd_lambda_supervised), pkt_loss(pkt_lambda_supervised)]
     }
 
     if isinstance(kt_methods, str):

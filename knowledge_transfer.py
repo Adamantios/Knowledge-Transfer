@@ -31,13 +31,12 @@ def check_args() -> None:
         raise ValueError('You cannot set both clip norm and clip value.')
 
 
-def knowledge_transfer(method: Method, loss: LossType, custom_objects: dict) -> Tuple[Model, History]:
+def knowledge_transfer(method: Method, loss: LossType) -> Tuple[Model, History]:
     """
     Performs KT.
 
     :param method: the method used fot the KT.
     :param loss: the KT loss to be used.
-    :param custom_objects: the custom objects used.
     :return: Tuple containing a student Keras model and its training History object.
     """
     # Create student model.
@@ -80,19 +79,19 @@ def knowledge_transfer(method: Method, loss: LossType, custom_objects: dict) -> 
     # Initialize callbacks list.
     kt_logging.debug('Initializing Callbacks...')
     # Create a temp file, in order to save the model, if needed.
-    tmp_model_path = None
+    tmp_weights_path = None
     if use_best_model:
-        tmp_model_path = join(gettempdir(), next(_get_candidate_names()) + '.h5')
+        tmp_weights_path = join(gettempdir(), next(_get_candidate_names()) + '.h5')
 
     if method == Method.DISTILLATION:
         callbacks_list = init_callbacks('val_accuracy', lr_patience, lr_decay, lr_min, early_stopping_patience,
-                                        verbosity, tmp_model_path, custom_objects)
+                                        verbosity, tmp_weights_path)
     elif method == Method.PKT:
         callbacks_list = init_callbacks('val_loss', lr_patience, lr_decay, lr_min, early_stopping_patience, verbosity,
-                                        tmp_model_path, custom_objects)
+                                        tmp_weights_path)
     else:
         callbacks_list = init_callbacks('val_concatenate_accuracy', lr_patience, lr_decay, lr_min,
-                                        early_stopping_patience, verbosity, tmp_model_path, custom_objects)
+                                        early_stopping_patience, verbosity, tmp_weights_path)
 
     # Fit student.
     if method == Method.PKT_PLUS_DISTILLATION:
@@ -104,12 +103,11 @@ def knowledge_transfer(method: Method, loss: LossType, custom_objects: dict) -> 
                               validation_data=(x_val, y_val_concat),
                               callbacks=callbacks_list)
 
-    if exists(tmp_model_path):
-        # Load best model and delete the temp file.
-        returned_model = load_model(tmp_model_path, custom_objects=custom_objects)
-        remove(tmp_model_path)
-    else:
-        returned_model = copy_model(student)
+    returned_model = copy_model(student)
+    if exists(tmp_weights_path):
+        # Load best weights and delete the temp file.
+        returned_model.load_weights(tmp_weights_path)
+        remove(tmp_weights_path)
 
     # Rewind student to normal, if necessary.
     if method == Method.DISTILLATION:
@@ -173,7 +171,7 @@ def run_kt_methods() -> None:
 
     for method in methods:
         kt_logging.info('Performing {}...'.format(method['name']))
-        student, history = knowledge_transfer(method['method'], method['loss'], method['custom_objects'])
+        student, history = knowledge_transfer(method['method'], method['loss'])
         # TODO model_path = os.path.join(tempfile.gettempdir(), next(tempfile._get_candidate_names()) + '.h5')
         #  and save student model there, when we stop needing it,
         #  because it is inefficient to have it in memory until - if ever - we need to save it.
