@@ -144,13 +144,13 @@ def evaluate_results(results: list) -> None:
             result['evaluation'] = result['network'].evaluate(x_test, y_test, evaluation_batch_size, verbosity)
         else:
             # Get pkt features and pass them through a knn classifier, in order to calculate accuracy.
-            pkt_features_train = result['network'].predict(x_train, evaluation_batch_size, verbosity)
-            pkt_features_test = result['network'].predict(x_test, evaluation_batch_size, verbosity)
+            pkt_features_train = result['network'].predict(x_train, evaluation_batch_size, verbose=0)
+            pkt_features_test = result['network'].predict(x_test, evaluation_batch_size, verbose=0)
             knn = KNeighborsClassifier(k, n_jobs=-1)
             knn.fit(pkt_features_train, y_train)
             y_pred = knn.predict(pkt_features_test)
             result['evaluation'] = [
-                result['network'].evaluate(x_test, y_test, evaluation_batch_size, verbosity)[0],
+                result['network'].evaluate(x_test, y_test, evaluation_batch_size, verbose=0)[0],
                 accuracy_score(y_test, y_pred),
                 log_loss(y_test, y_pred)
             ]
