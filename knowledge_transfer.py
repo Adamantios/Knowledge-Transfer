@@ -103,19 +103,18 @@ def knowledge_transfer(method: Method, loss: LossType) -> Tuple[Model, History]:
                               validation_data=(x_val, y_val_concat),
                               callbacks=callbacks_list)
 
-    returned_model = copy_model(student)
     if exists(tmp_weights_path):
         # Load best weights and delete the temp file.
-        returned_model.load_weights(tmp_weights_path)
+        student.load_weights(tmp_weights_path)
         remove(tmp_weights_path)
 
     # Rewind student to normal, if necessary.
     if method == Method.DISTILLATION:
-        returned_model = kd_student_rewind(returned_model)
+        student = kd_student_rewind(student)
     if method == Method.PKT_PLUS_DISTILLATION:
-        returned_model = pkt_plus_kd_rewind(returned_model)
+        student = pkt_plus_kd_rewind(student)
 
-    return returned_model, history
+    return copy_model(student), history
 
 
 def evaluate_results(results: list) -> None:
