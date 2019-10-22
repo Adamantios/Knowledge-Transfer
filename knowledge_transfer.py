@@ -1,5 +1,7 @@
 import logging
-from os.path import join
+from os import remove
+from os.path import join, exists
+from tempfile import gettempdir, _get_candidate_names
 from typing import Tuple, List, Union
 
 from numpy import concatenate
@@ -28,12 +30,13 @@ def check_args() -> None:
         raise ValueError('You cannot set both clip norm and clip value.')
 
 
-def knowledge_transfer(method: Method, loss: LossType) -> Tuple[Model, History]:
+def knowledge_transfer(method: Method, loss: LossType, custom_objects: dict) -> Tuple[Model, History]:
     """
     Performs KT.
 
     :param method: the method used fot the KT.
     :param loss: the KT loss to be used.
+    :param custom_objects: the custom objects used.
     :return: Tuple containing a student Keras model and its training History object.
     """
     # Create student model.
@@ -75,14 +78,20 @@ def knowledge_transfer(method: Method, loss: LossType) -> Tuple[Model, History]:
 
     # Initialize callbacks list.
     kt_logging.debug('Initializing Callbacks...')
+    # Create a temp file, in order to save the model, if needed.
+    tmp_model_path = None
+    if use_best_model:
+        tmp_model_path = join(gettempdir(), next(_get_candidate_names()) + '.h5')
+
     if method == Method.DISTILLATION:
         callbacks_list = init_callbacks('val_accuracy', lr_patience, lr_decay, lr_min, early_stopping_patience,
-                                        verbosity)
+                                        verbosity, tmp_model_path, custom_objects)
     elif method == Method.PKT:
-        callbacks_list = init_callbacks('val_loss', lr_patience, lr_decay, lr_min, early_stopping_patience, verbosity)
+        callbacks_list = init_callbacks('val_loss', lr_patience, lr_decay, lr_min, early_stopping_patience, verbosity,
+                                        tmp_model_path, custom_objects)
     else:
         callbacks_list = init_callbacks('val_concatenate_accuracy', lr_patience, lr_decay, lr_min,
-                                        early_stopping_patience, verbosity)
+                                        early_stopping_patience, verbosity, tmp_model_path, custom_objects)
 
     # Fit student.
     if method == Method.PKT_PLUS_DISTILLATION:
@@ -94,13 +103,20 @@ def knowledge_transfer(method: Method, loss: LossType) -> Tuple[Model, History]:
                               validation_data=(x_test, y_test_concat),
                               callbacks=callbacks_list)
 
+    if exists(tmp_model_path):
+        # Load best model and delete the temp file.
+        returned_model = load_model(tmp_model_path, custom_objects=custom_objects)
+        remove(tmp_model_path)
+    else:
+        returned_model = copy_model(student)
+
     # Rewind student to normal, if necessary.
     if method == Method.DISTILLATION:
-        student = kd_student_rewind(student)
+        returned_model = kd_student_rewind(returned_model)
     if method == Method.PKT_PLUS_DISTILLATION:
-        student = pkt_plus_kd_rewind(student)
+        returned_model = pkt_plus_kd_rewind(returned_model)
 
-    return copy_model(student), history
+    return returned_model, history
 
 
 def evaluate_results(results: list) -> None:
@@ -156,7 +172,7 @@ def run_kt_methods() -> None:
 
     for method in methods:
         kt_logging.info('Performing {}...'.format(method['name']))
-        student, history = knowledge_transfer(method['method'], method['loss'])
+        student, history = knowledge_transfer(method['method'], method['loss'], method['custom_objects'])
         # TODO model_path = os.path.join(tempfile.gettempdir(), next(tempfile._get_candidate_names()) + '.h5')
         #  and save student model there, when we stop needing it,
         #  because it is inefficient to have it in memory until - if ever - we need to save it.
@@ -193,6 +209,7 @@ if __name__ == '__main__':
     k: int = args.neighbors
     kd_importance_weight: float = args.kd_importance_weight
     pkt_importance_weight: float = args.pkt_importance_weight
+    use_best_model: bool = not args.use_final_model
     save_students_mode: str = args.save_students
     save_results: bool = not args.omit_results
     results_name_prefix: str = args.results_name_prefix

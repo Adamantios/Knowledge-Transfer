@@ -12,6 +12,7 @@ PKT_LAMBDA_SUPERVISED = 1E-4
 K = 5
 KD_IMPORTANCE_WEIGHT = 1
 PKT_IMPORTANCE_WEIGHT = 1
+KEEP_BEST = True
 SAVE_STUDENTS = 'best'
 SAVE_STUDENTS_CHOICES = 'all', 'best', 'none'
 SAVE_RESULTS = True
@@ -66,6 +67,9 @@ def create_parser() -> ArgumentParser:
                         help='The importance weight for the KD loss, if method is PKT plus KD (default %(default)s).')
     parser.add_argument('-pktw', '--pkt_importance_weight', default=PKT_IMPORTANCE_WEIGHT, required=False, type=float,
                         help='The importance weight for the PKT loss, if method is PKT plus KD (default %(default)s).')
+    parser.add_argument('-ufm', '--use_final_model', default=not KEEP_BEST, required=False, action='store_true',
+                        help='Whether the final model should be used for saving and results evaluation '
+                             'and not the best one achieved through the training procedure (default %(default)s).')
     parser.add_argument('-s', '--save_students', type=str.lower, default=SAVE_STUDENTS, required=False,
                         choices=SAVE_STUDENTS_CHOICES,
                         help='The save mode for the final student networks. (default %(default)s).')
