@@ -36,43 +36,43 @@ def plot_results(results: List[Dict], epochs: int, save_folder: Optional[str]) -
 
     # Plot KT methods comparison for each metric.
     # Do not compare for PKT.
-    n_methods = 0
+    more_than_one_methods = False
     for result in results:
         if result['method'] != 'Teacher' and result['method'] != 'Probabilistic Knowledge Transfer':
-            n_methods += 1
+            more_than_one_methods = True
+            break
 
-    if bool(n_methods):
+    if more_than_one_methods:
         linestyles = ['--', '-.', ':']
-        i = 0
-        for metric_index, metric in enumerate(results[0]['history'].keys()):
-            # Plot only validation metric results.
-            if metric.startswith('val_') and 'loss' not in metric:
-                i += 1
-                linestyles_pool = cycle(linestyles)
-                # Create subplot for overall KT methods comparison for the current metric.
-                fig, ax = plt.subplots(figsize=(12, 10))
-                ax.set_title('KT Methods Comparison', fontsize='x-large')
-                ax.set_xlabel('epoch', fontsize='large')
-                ax.set_ylabel(metric, fontsize='large')
-                # For every method.
-                for result in results:
-                    if result['method'] == 'Teacher':
-                        # Plot teacher baseline.
-                        baseline = asarray([result['evaluation'][i] for _ in range(epochs)])
-                        ax.plot(baseline, label=result['method'], linestyle='-')
-                    elif result['method'] == 'Probabilistic Knowledge Transfer':
-                        continue
-                    elif result['method'] == 'PKT plus Distillation':
-                        # Plot method's current metric results.
-                        ax.plot(list(result['history'].values())[metric_index + 4], label=result['method'],
-                                linestyle=next(linestyles_pool))
-                    else:
-                        # Plot method's current metric results.
-                        ax.plot(list(result['history'].values())[metric_index], label=result['method'],
-                                linestyle=next(linestyles_pool))
+        # For every metric.
+        for i, metric in enumerate(['accuracy', 'crossentropy']):
+            # Create subplot for overall KT methods comparison for the current metric.
+            fig, ax = plt.subplots(figsize=(12, 10))
+            ax.set_title('KT Methods Comparison', fontsize='x-large')
+            ax.set_xlabel('epoch', fontsize='large')
+            ax.set_ylabel(metric, fontsize='large')
+            # Get next linestyle.
+            linestyles_pool = cycle(linestyles)
 
-                ax.legend(loc='best', fontsize='large')
-                plt.show()
-                if save_folder is not None:
-                    filepath = join(save_folder, 'KT_Methods_Comparison_' + metric + '_vs_epoch' + '.png')
-                    fig.savefig(filepath)
+            # For every method.
+            for result in results:
+                if result['method'] == 'Teacher':
+                    # Plot teacher baseline.
+                    baseline = asarray([result['evaluation'][i + 1] for _ in range(epochs)])
+                    ax.plot(baseline, label=result['method'], linestyle='-')
+                elif result['method'] == 'Probabilistic Knowledge Transfer':
+                    continue
+                elif result['method'] == 'PKT plus Distillation':
+                    # Plot teacher PKT plus Distillation.
+                    ax.plot(list(result['history']['val_concatenate_' + metric]), label=result['method'],
+                            linestyle=next(linestyles_pool))
+                else:
+                    # Plot method's current metric results.
+                    ax.plot(list(result['history']['val_' + metric]), label=result['method'],
+                            linestyle=next(linestyles_pool))
+
+            ax.legend(loc='best', fontsize='large')
+            plt.show()
+            if save_folder is not None:
+                filepath = join(save_folder, 'KT_Methods_Comparison_' + metric + '_vs_epoch' + '.png')
+                fig.savefig(filepath)
