@@ -288,7 +288,7 @@ def generate_appropriate_methods(kt_methods: Union[str, List[str]], temperature:
     pkt_plus_distillation = {
         'name': 'PKT plus Distillation',
         'method': Method.PKT_PLUS_DISTILLATION,
-        'loss': [distillation_loss(temperature, kd_lambda_supervised), pkt_loss(pkt_lambda_supervised)]
+        'loss': [distillation_loss(temperature, kd_lambda_supervised), pkt_loss(0)]
     }
 
     if isinstance(kt_methods, str):
