@@ -11,6 +11,7 @@ from tensorflow.python.keras.callbacks import ReduceLROnPlateau, EarlyStopping, 
 from tensorflow.python.keras.models import clone_model
 from tensorflow.python.keras.optimizers import adam, rmsprop, sgd, adagrad, adadelta, adamax
 from tensorflow.python.keras.saving import save_model
+from tensorflow.python.keras.utils.layer_utils import count_params
 
 from core.adaptation import Method
 from core.losses import distillation_loss, pkt_loss
@@ -210,8 +211,8 @@ def log_results(results: List[Dict]) -> None:
     # Show final results.
     final_results = 'Final results: \n'
 
-    teacher_params = results[-1]['network'].count_params()
-    student_params = results[0]['network'].count_params()
+    teacher_params = count_params(results[-1]['network'].trainable_weights)
+    student_params = count_params(results[0]['network'].trainable_weights)
     final_results += 'Parameters:\n    Teacher params: {}\n    Student params: {}\n    Ratio: T/S={:.4} S/T={:.4}\n' \
         .format(teacher_params, student_params, teacher_params / student_params, student_params / teacher_params)
 
