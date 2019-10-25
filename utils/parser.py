@@ -2,7 +2,6 @@ from argparse import ArgumentParser
 
 # ----------------------------------- DEFAULT ARGUMENTS ------------------------------------------
 
-STUDENT_CHOICES = {'cifar10_tiny_1'}
 DATASET_CHOICES = {'cifar10', 'cifar100'}
 METHOD = ['distillation', 'pkt', 'pkt+distillation']
 METHOD_CHOICES = {'distillation', 'pkt', 'pkt+distillation'}
@@ -49,7 +48,7 @@ def create_parser() -> ArgumentParser:
     parser = ArgumentParser(description='Transfer the knowledge between two Neural Networks, '
                                         'using different methods and compare the results.')
     parser.add_argument('teacher', type=str, help='Path to a trained teacher network.')
-    parser.add_argument('student', type=str, choices=STUDENT_CHOICES, help='The student network to be used.')
+    parser.add_argument('student', type=str, help='Path to a student network to be used.')
     parser.add_argument('dataset', type=str, choices=DATASET_CHOICES, help='The name of the dataset to be used.')
     parser.add_argument('-m', '--method', type=str.lower, nargs='+', default=METHOD, required=False,
                         choices=METHOD_CHOICES, help='The KT method(s) to be used. (default %(default)s).')

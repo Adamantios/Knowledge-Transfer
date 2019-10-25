@@ -1,7 +1,7 @@
 import logging
 import pickle
 from os import makedirs
-from os.path import dirname, exists, isfile, join
+from os.path import dirname, exists, join
 from typing import Union, Tuple, Any, Dict, List
 
 from numpy import ndarray
@@ -14,7 +14,6 @@ from tensorflow.python.keras.saving import save_model
 
 from core.adaptation import Method
 from core.losses import distillation_loss, pkt_loss
-from student_networks.cifar10_tiny_1 import cifar10_tiny_1
 
 OptimizerType = Union[adam, rmsprop, sgd, adagrad, adadelta, adamax]
 
@@ -51,30 +50,6 @@ def preprocess_data(dataset: str, train: ndarray, test: ndarray) -> Tuple[ndarra
         raise ValueError("Unrecognised dataset!")
 
     return train, test
-
-
-def create_student(student_name: str, input_shape: tuple, n_classes: int, start_weights: str = None) -> Model:
-    """
-    Creates the student model and loads weights as a start point if they exist.
-
-    :param student_name: the name of the student model to be used. It can be one of: 'cifar10_tiny_1'
-    :param input_shape: the student model's input shape.
-    :param n_classes: the number of classes to predict.
-    :param start_weights: path to weights to initialize the student model with.
-    :return: Keras Sequential model.
-    """
-    if student_name == 'cifar10_tiny_1':
-        model_generator = cifar10_tiny_1
-    else:
-        raise ValueError('Unrecognised student model!')
-
-    if start_weights != '' and start_weights is not None:
-        if isfile(start_weights):
-            return model_generator(input_shape=input_shape, weights_path=start_weights, n_classes=n_classes)
-        else:
-            raise FileNotFoundError('Checkpoint file \'{}\' not found.'.format(start_weights))
-    else:
-        return model_generator(input_shape=input_shape, n_classes=n_classes)
 
 
 def initialize_optimizer(optimizer_name: str, learning_rate: float = None, decay: float = None, beta1: float = None,

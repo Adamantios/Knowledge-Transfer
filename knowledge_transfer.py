@@ -18,7 +18,7 @@ from tensorflow.python.keras.utils import to_categorical
 from core.adaptation import Method, kt_metric, kd_student_adaptation, kd_student_rewind, \
     pkt_plus_kd_student_adaptation, pkt_plus_kd_rewind
 from core.losses import LossType
-from utils.helpers import initialize_optimizer, load_data, preprocess_data, create_student, init_callbacks, \
+from utils.helpers import initialize_optimizer, load_data, preprocess_data, init_callbacks, \
     save_students, log_results, copy_model, create_path, save_res, generate_appropriate_methods
 from utils.logging import KTLogger
 from utils.parser import create_parser
@@ -41,7 +41,7 @@ def knowledge_transfer(method: Method, loss: LossType) -> Tuple[Model, History]:
     """
     # Create student model.
     kt_logging.info('Creating student...')
-    student = create_student(student_name, x_train.shape[1:], n_classes, start_weights)
+    student = load_model(student_path, compile=False)
 
     # Adapt student, if necessary.
     if method == Method.DISTILLATION:
@@ -197,7 +197,7 @@ if __name__ == '__main__':
     # Get arguments.
     args = create_parser().parse_args()
     teacher: Model = load_model(args.teacher, compile=False)
-    student_name: str = args.student
+    student_path: str = args.student
     dataset: str = args.dataset
     kt_methods: Union[str, List[str]] = args.method
     start_weights: str = args.start_weights
