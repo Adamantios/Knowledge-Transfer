@@ -1,17 +1,18 @@
 import logging
 import pickle
+from itertools import zip_longest
 from os import makedirs
 from os.path import dirname, exists, join
-from typing import Union, Tuple, Any, Dict, List
+from typing import Union, Tuple, Dict, List
 
-from numpy import ndarray
-from tensorflow.keras.datasets import cifar10, cifar100
+from numpy import ndarray, empty
 from tensorflow.python.keras import Model
 from tensorflow.python.keras.callbacks import ReduceLROnPlateau, EarlyStopping, ModelCheckpoint
 from tensorflow.python.keras.models import clone_model
 from tensorflow.python.keras.optimizers import adam, rmsprop, sgd, adagrad, adadelta, adamax
 from tensorflow.python.keras.saving import save_model
 from tensorflow.python.keras.utils.layer_utils import count_params
+from tensorflow_datasets import load, as_numpy
 
 from core.adaptation import Method
 from core.losses import distillation_loss, pkt_loss
@@ -19,21 +20,35 @@ from core.losses import distillation_loss, pkt_loss
 OptimizerType = Union[adam, rmsprop, sgd, adagrad, adadelta, adamax]
 
 
-def load_data(dataset: str) -> [Tuple[ndarray, ndarray], Tuple[Any, ndarray], int]:
+def load_data(dataset: str) -> Tuple[Tuple[ndarray, ndarray], Tuple[ndarray, ndarray], int]:
     """
     Loads the dataset.
 
-    :param dataset: The name of the dataset to load.
     :return: the data and the number of classes.
     """
-    if dataset == 'cifar10':
-        data, classes = cifar10.load_data(), 10
-    elif dataset == 'cifar100':
-        data, classes = cifar100.load_data(), 100
-    else:
-        raise ValueError("Unrecognised dataset!")
+    data, info = load(dataset, with_info=True)
+    data = as_numpy(data)
+    data_shape = info.features.shape['image']
+    labels_shape = info.features.shape['label']
+    train_examples_num = info.splits['train'].num_examples
+    test_examples_num = info.splits['test'].num_examples
+    classes = info.features['label'].num_classes
 
-    return data, classes
+    train, test = data['train'], data['test']
+    train_data = empty((train_examples_num,) + data_shape)
+    train_labels = empty((train_examples_num,) + labels_shape)
+    test_data = empty((test_examples_num,) + data_shape)
+    test_labels = empty((test_examples_num,) + labels_shape)
+
+    for i, (sample_train, sample_test) in enumerate(zip_longest(train, test)):
+        train_data[i] = sample_train['image']
+        train_labels[i] = sample_train['label']
+
+        if i < test_examples_num:
+            test_data[i] = sample_test['image']
+            test_labels[i] = sample_test['label']
+
+    return (train_data, train_labels), (test_data, test_labels), classes
 
 
 def preprocess_data(dataset: str, train: ndarray, test: ndarray) -> Tuple[ndarray, ndarray]:

@@ -243,7 +243,7 @@ if __name__ == '__main__':
 
     # Load dataset.
     kt_logging.info('Loading dataset...')
-    ((x_train, y_train), (x_test, y_test)), n_classes = load_data(dataset)
+    (x_train, y_train), (x_test, y_test), n_classes = load_data(dataset)
 
     # Preprocess data.
     kt_logging.info('Preprocessing data...')

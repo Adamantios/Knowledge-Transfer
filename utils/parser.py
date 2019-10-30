@@ -1,10 +1,9 @@
 from argparse import ArgumentParser
 
 # ----------------------------------- DEFAULT ARGUMENTS ------------------------------------------
-
-DATASET_CHOICES = {'cifar10', 'cifar100'}
+DATASET_CHOICES = 'cifar10', 'cifar100', 'svhn_cropped', 'fashion_MNIST'
 METHOD = ['distillation', 'pkt', 'pkt+distillation']
-METHOD_CHOICES = {'distillation', 'pkt', 'pkt+distillation'}
+METHOD_CHOICES = 'distillation', 'pkt', 'pkt+distillation'
 TEMPERATURE = 2
 KD_LAMBDA_SUPERVISED = 0.1
 PKT_LAMBDA_SUPERVISED = 1E-4
