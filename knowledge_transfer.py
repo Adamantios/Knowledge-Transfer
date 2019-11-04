@@ -23,6 +23,7 @@ from utils.helpers import initialize_optimizer, load_data, preprocess_data, init
 from utils.logging import KTLogger
 from utils.parser import create_parser
 from utils.plotter import plot_results
+from utils.tools import Crop
 
 
 def check_args() -> None:
@@ -196,7 +197,7 @@ def run_kt_methods() -> None:
 if __name__ == '__main__':
     # Get arguments.
     args = create_parser().parse_args()
-    teacher: Model = load_model(args.teacher, compile=False)
+    teacher: Model = load_model(args.teacher, custom_objects={'Crop': Crop}, compile=False)
     student_path: str = args.student
     dataset: str = args.dataset
     kt_methods: Union[str, List[str]] = args.method
