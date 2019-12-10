@@ -1,7 +1,7 @@
 from argparse import ArgumentParser
 
 # ----------------------------------- DEFAULT ARGUMENTS ------------------------------------------
-DATASET_CHOICES = 'cifar10', 'cifar100', 'svhn_cropped', 'fashion_MNIST'
+DATASET_CHOICES = 'cifar10', 'cifar100', 'svhn_cropped', 'fashion_mnist'
 METHOD = ['distillation', 'pkt', 'pkt+distillation']
 METHOD_CHOICES = 'distillation', 'pkt', 'pkt+distillation'
 TEMPERATURE = 2
