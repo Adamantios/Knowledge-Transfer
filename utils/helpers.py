@@ -6,9 +6,7 @@ from os.path import dirname, exists, join
 from typing import Union, Tuple, Dict, List
 
 from numpy import ndarray, empty
-from tensorflow.python.keras import Model
 from tensorflow.python.keras.callbacks import ReduceLROnPlateau, EarlyStopping, ModelCheckpoint
-from tensorflow.python.keras.models import clone_model
 from tensorflow.python.keras.optimizers import adam, rmsprop, sgd, adagrad, adadelta, adamax
 from tensorflow.python.keras.saving import save_model
 from tensorflow.python.keras.utils.layer_utils import count_params
@@ -147,21 +145,6 @@ def create_path(filepath: str, base: bool = False) -> None:
     # Create directory if it does not exist
     if not exists(directory):
         makedirs(directory)
-
-
-def copy_model(model: Model) -> Model:
-    """
-    Copies a Keras Model.
-
-    :param model: the model to be copied.
-    :return: the copied Model.
-    """
-    copy = clone_model(model)
-    copy.build(model.input_shape)
-    copy.compile(optimizer=model.optimizer, loss=model.loss, metrics=model.metrics)
-    copy.set_weights(model.get_weights())
-
-    return copy
 
 
 def save_students(save_students_mode: str, results: list, out_folder: str) -> None:

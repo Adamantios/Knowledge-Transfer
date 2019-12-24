@@ -12,14 +12,15 @@ from tensorflow.python.keras import Model
 from tensorflow.python.keras.callbacks import History
 from tensorflow.python.keras.losses import categorical_crossentropy, mse
 from tensorflow.python.keras.metrics import categorical_accuracy
+from tensorflow.python.keras.models import clone_model
 from tensorflow.python.keras.saving import load_model
 from tensorflow.python.keras.utils import to_categorical
 
 from core.adaptation import Method, kt_metric, kd_student_adaptation, kd_student_rewind, \
-    pkt_plus_kd_student_adaptation, pkt_plus_kd_rewind
+    pkt_plus_kd_student_adaptation, pkt_plus_kd_rewind, attention_framework_adaptation
 from core.losses import LossType
 from utils.helpers import initialize_optimizer, load_data, preprocess_data, init_callbacks, \
-    save_students, log_results, copy_model, create_path, save_res, generate_appropriate_methods
+    save_students, log_results, create_path, save_res, generate_appropriate_methods
 from utils.logging import KTLogger
 from utils.parser import create_parser
 from utils.plotter import plot_results
@@ -32,25 +33,22 @@ def check_args() -> None:
         raise ValueError('You cannot set both clip norm and clip value.')
 
 
-def knowledge_transfer(method: Method, loss: LossType) -> Tuple[Model, History]:
+def knowledge_transfer(current_student: Model, method: Method, loss: LossType) -> Tuple[Model, History]:
     """
     Performs KT.
 
-    :param method: the method used fot the KT.
+    :param current_student: the student to be used for the current KT method.
+    :param method: the method to be used for the KT.
     :param loss: the KT loss to be used.
     :return: Tuple containing a student Keras model and its training History object.
     """
-    # Create student model.
-    kt_logging.info('Creating student...')
-    student = load_model(student_path, compile=False)
+    kt_logging.debug('Configuring student...')
 
     # Adapt student, if necessary.
     if method == Method.DISTILLATION:
-        student = kd_student_adaptation(student, temperature)
+        current_student = kd_student_adaptation(current_student, temperature)
     if method == Method.PKT_PLUS_DISTILLATION:
-        student = pkt_plus_kd_student_adaptation(student, temperature)
-
-    kt_logging.debug('Configuring student...')
+        current_student = pkt_plus_kd_student_adaptation(current_student, temperature)
 
     # Create optimizer.
     optimizer = initialize_optimizer(optimizer_name, learning_rate, decay, beta1, beta2, rho, momentum,
@@ -75,7 +73,7 @@ def knowledge_transfer(method: Method, loss: LossType) -> Tuple[Model, History]:
         weights = [kd_importance_weight, pkt_importance_weight]
 
     # Compile student.
-    student.compile(optimizer, loss, metrics, weights)
+    current_student.compile(optimizer, loss, metrics, weights)
 
     # Initialize callbacks list.
     kt_logging.debug('Initializing Callbacks...')
@@ -96,26 +94,26 @@ def knowledge_transfer(method: Method, loss: LossType) -> Tuple[Model, History]:
 
     # Fit student.
     if method == Method.PKT_PLUS_DISTILLATION:
-        history = student.fit(x_train, [y_train_concat, y_train_concat], batch_size=batch_size, epochs=epochs,
-                              validation_data=(x_val, [y_val_concat, y_val_concat]),
-                              callbacks=callbacks_list)
+        history = current_student.fit(x_train, [y_train_concat, y_train_concat], batch_size=batch_size, epochs=epochs,
+                                      validation_data=(x_val, [y_val_concat, y_val_concat]),
+                                      callbacks=callbacks_list)
     else:
-        history = student.fit(x_train, y_train_concat, batch_size=batch_size, epochs=epochs,
-                              validation_data=(x_val, y_val_concat),
-                              callbacks=callbacks_list)
+        history = current_student.fit(x_train, y_train_concat, batch_size=batch_size, epochs=epochs,
+                                      validation_data=(x_val, y_val_concat),
+                                      callbacks=callbacks_list)
 
     if exists(tmp_weights_path):
         # Load best weights and delete the temp file.
-        student.load_weights(tmp_weights_path)
+        current_student.load_weights(tmp_weights_path)
         remove(tmp_weights_path)
 
     # Rewind student to normal, if necessary.
     if method == Method.DISTILLATION:
-        student = kd_student_rewind(student)
+        current_student = kd_student_rewind(current_student)
     if method == Method.PKT_PLUS_DISTILLATION:
-        student = pkt_plus_kd_rewind(student)
+        current_student = pkt_plus_kd_rewind(current_student)
 
-    return copy_model(student), history
+    return current_student, history
 
 
 def evaluate_results(results: list) -> None:
@@ -171,14 +169,14 @@ def run_kt_methods() -> None:
 
     for method in methods:
         kt_logging.info('Performing {}...'.format(method['name']))
-        student, history = knowledge_transfer(method['method'], method['loss'])
+        trained_student, history = knowledge_transfer(clone_model(student), method['method'], method['loss'])
         # TODO model_path = os.path.join(tempfile.gettempdir(), next(tempfile._get_candidate_names()) + '.h5')
         #  and save student model there, when we stop needing it,
         #  because it is inefficient to have it in memory until - if ever - we need to save it.
         #  That way, when the time comes, we will just need to move it to the out folder.
         results.append({
             'method': method['name'],
-            'network': student,
+            'network': trained_student,
             'history': history.history,
             'evaluation': None
         })
@@ -198,7 +196,7 @@ if __name__ == '__main__':
     # Get arguments.
     args = create_parser().parse_args()
     teacher: Model = load_model(args.teacher, custom_objects={'Crop': Crop}, compile=False)
-    student_path: str = args.student
+    student = load_model(args.student, compile=False)
     dataset: str = args.dataset
     kt_methods: Union[str, List[str]] = args.method
     start_weights: str = args.start_weights
