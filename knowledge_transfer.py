@@ -17,7 +17,8 @@ from tensorflow.python.keras.saving import load_model
 from tensorflow.python.keras.utils import to_categorical
 
 from core.adaptation import Method, kt_metric, kd_student_adaptation, kd_student_rewind, \
-    pkt_plus_kd_student_adaptation, pkt_plus_kd_rewind, attention_framework_adaptation
+    pkt_plus_kd_student_adaptation, pkt_plus_kd_rewind
+from core.attention_framework import attention_framework_adaptation, attention_framework_rewind
 from core.losses import LossType
 from utils.helpers import initialize_optimizer, load_data, preprocess_data, init_callbacks, \
     save_students, log_results, create_path, save_res, generate_appropriate_methods
@@ -110,8 +111,10 @@ def knowledge_transfer(current_student: Model, method: Method, loss: LossType) -
     # Rewind student to normal, if necessary.
     if method == Method.DISTILLATION:
         current_student = kd_student_rewind(current_student)
-    if method == Method.PKT_PLUS_DISTILLATION:
+    elif method == Method.PKT_PLUS_DISTILLATION:
         current_student = pkt_plus_kd_rewind(current_student)
+    if attention:
+        current_student = attention_framework_rewind(current_student, x_train, x_val)
 
     return current_student, history
 
@@ -199,7 +202,7 @@ if __name__ == '__main__':
     student = load_model(args.student, compile=False)
     dataset: str = args.dataset
     kt_methods: Union[str, List[str]] = args.method
-    start_weights: str = args.start_weights
+    attention = args.attention
     temperature: float = args.temperature
     kd_lambda_supervised: float = args.kd_lambda_supervised
     pkt_lambda_supervised: float = args.pkt_lambda_supervised
@@ -260,6 +263,21 @@ if __name__ == '__main__':
     # Concatenate teacher's outputs with true labels.
     y_train_concat = concatenate([y_train, y_teacher_train], axis=1)
     y_val_concat = concatenate([y_val, y_teacher_val], axis=1)
+
+    # Adapt for Attention KT framework if needed.
+    if attention:
+        kt_logging.info('Preparing Attention KT framework...')
+
+        kt_logging.debug('Student\'s architecture before Attention adjustment:\n')
+        student.summary(print_fn=kt_logging.debug)
+
+        student, x_train_attention, x_val_attention = attention_framework_adaptation(x_train, x_val, teacher, student,
+                                                                                     evaluation_batch_size)
+
+        kt_logging.debug('Data after Attention adjustment:\n')
+        kt_logging.debug(x_train_attention)
+        kt_logging.debug('Student\'s architecture after Attention adjustment:\n')
+        student.summary(print_fn=kt_logging.debug)
 
     # Run kt.
     kt_logging.info('Starting KT method(s)...')
