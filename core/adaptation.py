@@ -49,7 +49,7 @@ def kd_student_adaptation(model: Model, temperature: float) -> Model:
     logits = model.layers[-2].output
 
     # Hard probabilities.
-    probabilities = Activation('softmax', name='softmax')(logits)
+    probabilities = Activation('softmax', name='hard_softmax')(logits)
 
     # Soft probabilities.
     if temperature == 1:
