@@ -84,7 +84,7 @@ def _student_adaptation(student: Model, input_shape: tuple) -> Model:
     """
     # TODO take care not to interfere with the kd and kd+pkt adaptation methods.
     # Initialize the attention sidewalk's input, having the same shape as the teacher's output.
-    attention_inputs = Input(input_shape)
+    attention_inputs = Input(input_shape, name='attention_input')
     # Create attention vector.
     attention_vector = Dense(student.output_shape[1], activation='softmax', name='attention_vector')(attention_inputs)
     # Multiply attention values with student's outputs.
