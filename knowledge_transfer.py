@@ -8,6 +8,7 @@ from numpy import concatenate
 from sklearn.metrics import accuracy_score, log_loss
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
+from tensorflow import ones
 from tensorflow.python.keras import Model
 from tensorflow.python.keras.callbacks import History
 from tensorflow.python.keras.losses import categorical_crossentropy, mse
@@ -18,7 +19,7 @@ from tensorflow.python.keras.utils import to_categorical
 
 from core.adaptation import Method, kt_metric, kd_student_adaptation, kd_student_rewind, \
     pkt_plus_kd_student_adaptation, pkt_plus_kd_rewind
-from core.attention_framework import attention_framework_adaptation, attention_student_rewind
+from core.attention_framework import attention_framework_adaptation
 from core.losses import LossType
 from utils.helpers import initialize_optimizer, load_data, preprocess_data, init_callbacks, \
     save_students, log_results, create_path, save_res, generate_appropriate_methods
@@ -66,7 +67,10 @@ def knowledge_transfer(current_student: Model, method: Method, loss: LossType) -
         kt_crossentropy.__name__ = 'crossentropy'
         metrics['concatenate'] = [kt_acc, kt_crossentropy]
     else:
-        metrics['softmax'] = []
+        if attention:
+            metrics['attention_weighted_predictions_softmax'] = []
+        else:
+            metrics['softmax'] = []
 
     # Create importance weights for the different losses if method is PKT_PLUS_DISTILLATION.
     weights = None
@@ -94,28 +98,15 @@ def knowledge_transfer(current_student: Model, method: Method, loss: LossType) -
                                         early_stopping_patience, verbosity, tmp_weights_path)
 
     # Train student.
-    if attention:
-        if method == Method.PKT_PLUS_DISTILLATION:
-            history = current_student.fit([x_train, x_train_attention], [y_train_concat, y_train_concat],
-                                          batch_size=batch_size,
-                                          epochs=epochs,
-                                          validation_data=(x_val, [y_val_concat, y_val_concat]),
-                                          callbacks=callbacks_list)
-        else:
-            history = current_student.fit([x_train, x_train_attention], y_train_concat, batch_size=batch_size,
-                                          epochs=epochs,
-                                          validation_data=(x_val, y_val_concat),
-                                          callbacks=callbacks_list)
+    if method == Method.PKT_PLUS_DISTILLATION:
+        history = current_student.fit(x_train, [y_train_concat, y_train_concat], batch_size=batch_size,
+                                      epochs=epochs,
+                                      validation_data=(x_val, [y_val_concat, y_val_concat]),
+                                      callbacks=callbacks_list)
     else:
-        if method == Method.PKT_PLUS_DISTILLATION:
-            history = current_student.fit(x_train, [y_train_concat, y_train_concat], batch_size=batch_size,
-                                          epochs=epochs,
-                                          validation_data=(x_val, [y_val_concat, y_val_concat]),
-                                          callbacks=callbacks_list)
-        else:
-            history = current_student.fit(x_train, y_train_concat, batch_size=batch_size, epochs=epochs,
-                                          validation_data=(x_val, y_val_concat),
-                                          callbacks=callbacks_list)
+        history = current_student.fit(x_train, y_train_concat, batch_size=batch_size, epochs=epochs,
+                                      validation_data=(x_val, y_val_concat),
+                                      callbacks=callbacks_list)
 
     if exists(tmp_weights_path):
         # Load best weights and delete the temp file.
@@ -127,11 +118,6 @@ def knowledge_transfer(current_student: Model, method: Method, loss: LossType) -
         current_student = kd_student_rewind(current_student)
     elif method == Method.PKT_PLUS_DISTILLATION:
         current_student = pkt_plus_kd_rewind(current_student)
-    if attention:
-        current_student = attention_student_rewind(current_student)
-
-        kt_logging.debug('Student\'s architecture after Attention rewind:\n')
-        current_student.summary(print_fn=kt_logging.debug)
 
     return current_student, history
 
@@ -142,14 +128,6 @@ def evaluate_results(results: list) -> None:
 
     :param results: the results list.
     """
-    # Add baseline to the results list.
-    results.append({
-        'method': 'Teacher',
-        'network': teacher,
-        'history': None,
-        'evaluation': None
-    })
-
     # Create optimizer.
     optimizer = initialize_optimizer(optimizer_name, learning_rate, decay, beta1, beta2, rho, momentum,
                                      clip_norm, clip_value)
@@ -200,6 +178,14 @@ def run_kt_methods() -> None:
             'history': history.history,
             'evaluation': None
         })
+
+    # Add baseline to the results list.
+    results.append({
+        'method': 'Teacher',
+        'network': teacher,
+        'history': None,
+        'evaluation': None
+    })
 
     kt_logging.info('Evaluating results...')
     evaluate_results(results)
@@ -284,17 +270,15 @@ if __name__ == '__main__':
     # Adapt for Attention KT framework if needed.
     if attention:
         kt_logging.info('Preparing Attention KT framework...')
-
-        kt_logging.debug('Student\'s architecture before Attention adjustment:\n')
-        student.summary(print_fn=kt_logging.debug)
-
         student, x_train_attention, x_val_attention = attention_framework_adaptation(x_train, x_val, teacher, student,
                                                                                      evaluation_batch_size)
-
-        kt_logging.debug('Data after Attention adjustment:\n')
-        kt_logging.debug(x_train_attention)
-        kt_logging.debug('Student\'s architecture after Attention adjustment:\n')
-        student.summary(print_fn=kt_logging.debug)
+        # Add attention training data.
+        x_train = {'student_input': x_train, 'attention_input': x_train_attention}
+        # Add attention validation data.
+        x_val = {'student_input': x_val, 'attention_input': x_val_attention}
+        # Create ones for the attention input on test time.
+        x_test_attention = ones((x_test.shape[0], x_train_attention.shape[1]))
+        x_test = {'student_input': x_test, 'attention_input': x_test_attention}
 
     # Run kt.
     kt_logging.info('Starting KT method(s)...')

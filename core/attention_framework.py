@@ -1,4 +1,4 @@
-from typing import Tuple, List
+from typing import Tuple
 
 from numpy.core.multiarray import ndarray
 from tensorflow import zeros_like
@@ -82,23 +82,23 @@ def _student_adaptation(student: Model, input_shape: tuple) -> Model:
     :param input_shape: the attention student's input shape.
     :return: the attention student.
     """
-    # TODO take care not to interfere with the kd and kd+pkt adaptation methods.
-    # Initialize the attention sidewalk's input, having the same shape as the teacher's output.
+    # Initialize the student's input and the attention sidewalk's input, having the same shape as the teacher's output.
+    student_input = Input(student.input_shape[1:], name='student_input')
     attention_inputs = Input(input_shape, name='attention_input')
     # Create attention vector.
     attention_vector = Dense(student.output_shape[1], activation='softmax', name='attention_vector')(attention_inputs)
     # Multiply attention values with student's outputs.
-    outputs = Multiply(name='attention_weighted_predictions')([student.output, attention_vector])
+    outputs = Multiply(name='attention_weighted_predictions')([student(student_input), attention_vector])
     # Add a softmax.
     outputs = Activation('softmax', name='attention_weighted_predictions_softmax')(outputs)
 
     # Create and return attention student.
-    attention_student = Model([student.input, attention_inputs], outputs, name='attention_' + student.name)
+    attention_student = Model([student_input, attention_inputs], outputs, name='attention_' + student.name)
     return attention_student
 
 
 def attention_framework_adaptation(x_train: ndarray, x_val: ndarray, teacher: Model, student: Model,
-                                   evaluation_batch_size: int) -> Tuple[Model, List[ndarray], List[ndarray]]:
+                                   evaluation_batch_size: int) -> Tuple[Model, ndarray, ndarray]:
     """
     Prepare everything for the attention KT framework.
 
@@ -119,16 +119,3 @@ def attention_framework_adaptation(x_train: ndarray, x_val: ndarray, teacher: Mo
     attention_student = _student_adaptation(student, input_shape=(attention_teacher.output_shape[1],))
 
     return attention_student, y_train, y_val
-
-
-def attention_student_rewind(attention_student: Model) -> Model:
-    """
-    Rewind attention student to the state he was before applying attention framework.
-
-    :param attention_student: the attention student model.
-    :return: the rewinded student model.
-    """
-    rewinded_student = Model(attention_student.input[0], attention_student.output[-4],
-                             name=attention_student.name.replace('attention_', ''))
-
-    return rewinded_student

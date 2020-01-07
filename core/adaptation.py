@@ -82,6 +82,24 @@ def kd_student_rewind(model: Model) -> Model:
     return model
 
 
+def _generate_pkt_outputs(output_shape, intermediate_outputs) -> Tensor:
+    """
+    Generates the outputs for the pkt model.
+
+    :param output_shape: the output shape of the base model.
+    :param intermediate_outputs: the pkt intermediate layer's outputs.
+    :return: the pkt outputs.
+    """
+    # Flatten outputs.
+    pkt_outputs = Flatten(name='flatten_pkt')(intermediate_outputs)
+    # Create pkt output.
+    pkt_outputs = Dense(output_shape, name='dense_pkt')(pkt_outputs)
+    # Add a softmax.
+    pkt_outputs = Activation('softmax', name='softmax_pkt')(pkt_outputs)
+
+    return pkt_outputs
+
+
 def pkt_plus_kd_student_adaptation(model: Model, temperature: float) -> Model:
     """
     Adapts a student model for distillation.
@@ -90,14 +108,32 @@ def pkt_plus_kd_student_adaptation(model: Model, temperature: float) -> Model:
     :param temperature: the temperature for the distillation process.
     :return: the adapted Model.
     """
+    # Adapt student.
     model = kd_student_adaptation(model, temperature)
+    output_shape = model.output_shape[1]
 
-    intermediate_layer = model.layers[-6]
-    logits = intermediate_layer.output
-    x = Flatten(name='flatten_out2')(logits)
-    intermediate_outputs = Dense(model.output_shape[1], activation='softmax', name='softmax_out2')(x)
+    if 'attention' in model.name:
+        # Get student before attention adaptation.
+        student = model.layers[2]
+        # Get intermediate outputs from student (4th layer from the end).
+        intermediate_outputs = student.layers[-4].output
+        # Generate pkt outputs and model.
+        pkt_outputs = _generate_pkt_outputs(output_shape, intermediate_outputs)
+        pkt_model = Model(student.input, pkt_outputs, name='pkt_model')
+        # Generate PKT + KD model.
+        pkt_plus_kd_model = Model(model.input, [model.output, pkt_model(model.input)], name=model.name)
+    else:
+        # Get an intermediate layer (6th layer from the end).
+        intermediate_layer = model.layers[-6]
+        # Get intermediate outputs from intermediate layer.
+        intermediate_outputs = intermediate_layer.output
+        # Generate pkt outputs and model.
+        pkt_outputs = _generate_pkt_outputs(output_shape, intermediate_outputs)
+        pkt_model = Model(model.input, pkt_outputs, name='pkt_model')
+        # Generate PKT + KD model.
+        pkt_plus_kd_model = Model(model.input, [model.output, pkt_model(model.input)], name=model.name)
 
-    return Model(model.input, [model.output, intermediate_outputs], name=model.name)
+    return pkt_plus_kd_model
 
 
 def pkt_plus_kd_rewind(model: Model) -> Model:
@@ -111,7 +147,7 @@ def pkt_plus_kd_rewind(model: Model) -> Model:
     optimizer, loss, metrics = model.optimizer, model.loss[0], model.metrics
 
     # Get normal softmax probabilities only.
-    outputs = model.layers[-5].output
+    outputs = model.layers[-4].output
 
     # Create new model and compile it.
     model = Model(model.input, outputs, name=model.name)
