@@ -4,11 +4,10 @@ from os.path import join, exists
 from tempfile import gettempdir, _get_candidate_names
 from typing import Tuple, List, Union
 
-from numpy import concatenate
+from numpy import concatenate, ones
 from sklearn.metrics import accuracy_score, log_loss
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
-from tensorflow import ones
 from tensorflow.python.keras import Model
 from tensorflow.python.keras.callbacks import History
 from tensorflow.python.keras.losses import categorical_crossentropy, mse
@@ -135,7 +134,10 @@ def evaluate_results(results: list) -> None:
     for result in results:
         kt_logging.info('Evaluating {}...'.format(result['method']))
         result['network'].compile(optimizer, mse, [categorical_accuracy, categorical_crossentropy])
-        if result['method'] != 'Probabilistic Knowledge Transfer':
+        if result['method'] == 'Teacher' and attention:
+            result['evaluation'] = result['network'].evaluate(x_test['student_input'], y_test, evaluation_batch_size,
+                                                              verbosity)
+        elif result['method'] != 'Probabilistic Knowledge Transfer':
             result['evaluation'] = result['network'].evaluate(x_test, y_test, evaluation_batch_size, verbosity)
         else:
             # Get pkt features and pass them through a knn classifier, in order to calculate accuracy.
@@ -270,13 +272,12 @@ if __name__ == '__main__':
     # Adapt for Attention KT framework if needed.
     if attention:
         kt_logging.info('Preparing Attention KT framework...')
-        student, x_train_attention, x_val_attention = attention_framework_adaptation(x_train, x_val, teacher, student,
-                                                                                     evaluation_batch_size)
+        student, x_train_attention = attention_framework_adaptation(x_train, teacher, student, evaluation_batch_size)
         # Add attention training data.
         x_train = {'student_input': x_train, 'attention_input': x_train_attention}
-        # Add attention validation data.
+        # Create ones for the attention input on val and test time.
+        x_val_attention = ones((x_val.shape[0], x_train_attention.shape[1]))
         x_val = {'student_input': x_val, 'attention_input': x_val_attention}
-        # Create ones for the attention input on test time.
         x_test_attention = ones((x_test.shape[0], x_train_attention.shape[1]))
         x_test = {'student_input': x_test, 'attention_input': x_test_attention}
 

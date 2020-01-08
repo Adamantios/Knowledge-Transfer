@@ -97,13 +97,12 @@ def _student_adaptation(student: Model, input_shape: tuple) -> Model:
     return attention_student
 
 
-def attention_framework_adaptation(x_train: ndarray, x_val: ndarray, teacher: Model, student: Model,
-                                   evaluation_batch_size: int) -> Tuple[Model, ndarray, ndarray]:
+def attention_framework_adaptation(x_train: ndarray, teacher: Model, student: Model,
+                                   evaluation_batch_size: int) -> Tuple[Model, ndarray]:
     """
     Prepare everything for the attention KT framework.
 
     :param x_train: the train data.
-    :param x_val: the validation data.
     :param teacher: the teacher model.
     :param student: the student model.
     :param evaluation_batch_size: the evaluation batch size
@@ -114,8 +113,7 @@ def attention_framework_adaptation(x_train: ndarray, x_val: ndarray, teacher: Mo
     attention_teacher = _teacher_adaptation(teacher)
     # Get attention teacher's outputs.
     y_train = attention_teacher.predict(x_train, evaluation_batch_size, 0)
-    y_val = attention_teacher.predict(x_val, evaluation_batch_size, 0)
     # Create attention student.
     attention_student = _student_adaptation(student, input_shape=(attention_teacher.output_shape[1],))
 
-    return attention_student, y_train, y_val
+    return attention_student, y_train
