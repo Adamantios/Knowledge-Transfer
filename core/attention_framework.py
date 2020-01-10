@@ -39,8 +39,43 @@ def _complicated_ensemble_adaptation(teacher: Model) -> Model:
     :param teacher: the complicated ensemble.
     :return: the attention complicated ensemble.
     """
-    # TODO
-    pass
+    # Get each submodel's outputs.
+    output1 = teacher.layers[-7].output
+    output2 = teacher.layers[-6].output
+    output3 = teacher.layers[-5].output
+    output4 = teacher.layers[-4].output
+    output5 = teacher.layers[-3].output
+
+    # Append zeros to the model outputs which do not predict all the classes.
+    output1_fixed = Concatenate(name='output_1_fixed')(
+        [output1, zeros_like(output2), zeros_like(output3), zeros_like(output4), zeros_like(output5)]
+    )
+    output2_fixed = Concatenate(name='output_2_fixed')(
+        [zeros_like(output1), output2, zeros_like(output3), zeros_like(output4), zeros_like(output5)]
+    )
+    output3_fixed = Concatenate(name='output_3_fixed')(
+        [zeros_like(output1), zeros_like(output2), output3, zeros_like(output4), zeros_like(output5)]
+    )
+    output4_fixed = Concatenate(name='output_4_fixed')(
+        [zeros_like(output1), zeros_like(output2), zeros_like(output3), output4, zeros_like(output5)]
+    )
+    output5_fixed = Concatenate(name='output_5_fixed')(
+        [zeros_like(output1), zeros_like(output2), zeros_like(output3), zeros_like(output4), output5]
+    )
+    # Add activations to the outputs.
+    output1_fixed = Activation('softmax', name='softmax1')(output1_fixed)
+    output2_fixed = Activation('softmax', name='softmax2')(output2_fixed)
+    output3_fixed = Activation('softmax', name='softmax3')(output3_fixed)
+    output4_fixed = Activation('softmax', name='softmax4')(output4_fixed)
+    output5_fixed = Activation('softmax', name='softmax5')(output5_fixed)
+    # Concatenate submodels outputs.
+    outputs = Concatenate(name='concatenated_submodels_outputs')(
+        [output1_fixed, output2_fixed, output3_fixed, output4_fixed, output5_fixed]
+    )
+
+    # Create attention teacher.
+    attention_teacher = Model(teacher.input, outputs, name='attention_' + teacher.name)
+    return attention_teacher
 
 
 def _ensemble_adaptation(teacher: Model) -> Model:
@@ -50,8 +85,17 @@ def _ensemble_adaptation(teacher: Model) -> Model:
     :param teacher: the ensemble.
     :return: the attention ensemble.
     """
-    # TODO
-    pass
+    # Calculate the number of submodels.
+    submodels_num = len(teacher.layers[1:-1])
+
+    # Concatenate submodels outputs.
+    outputs = Concatenate(name='concatenated_submodels_outputs')(
+        [teacher.layers[i + 1](teacher.input) for i in range(submodels_num)]
+    )
+
+    # Create attention teacher.
+    attention_teacher = Model(teacher.input, outputs, name='attention_' + teacher.name)
+    return attention_teacher
 
 
 def _teacher_adaptation(teacher: Model) -> Model:
