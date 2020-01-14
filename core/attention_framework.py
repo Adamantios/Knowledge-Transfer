@@ -1,17 +1,18 @@
 from typing import Tuple
 
+from numpy import argmax, concatenate
 from numpy.core.multiarray import ndarray
-from tensorflow import zeros_like
+from tensorflow import zeros_like, stack
 from tensorflow.python.keras import Model, Input
 from tensorflow.python.keras.layers import Concatenate, Activation, Dense, Multiply
 
 
-def _pyramid_ensemble_adaptation(teacher: Model) -> Model:
+def _pyramid_ensemble_adaptation(teacher: Model) -> Tuple[Model, int]:
     """
     Adapt pyramid ensemble by changing its output to contain each of its submodels outputs.
 
     :param teacher: the pyramid ensemble.
-    :return: the attention pyramid ensemble.
+    :return: the attention pyramid ensemble and the submodels number.
     """
     # Get each submodel's outputs.
     output1 = teacher.get_layer('submodel_strong_output').output
@@ -25,14 +26,14 @@ def _pyramid_ensemble_adaptation(teacher: Model) -> Model:
     output2 = Activation('softmax', name='softmax2')(output2)
     output3 = Activation('softmax', name='softmax3')(output3)
     # Concatenate submodels outputs.
-    outputs = Concatenate(name='concatenated_submodels_outputs')([output1, output2, output3])
+    outputs = stack([output1, output2, output3], name='concatenated_submodels_outputs')
 
     # Create attention teacher.
     attention_teacher = Model(teacher.input, outputs, name='attention_' + teacher.name)
-    return attention_teacher
+    return attention_teacher, 3
 
 
-def _complicated_ensemble_adaptation(teacher: Model) -> Model:
+def _complicated_ensemble_adaptation(teacher: Model) -> Tuple[Model, int]:
     """
     Adapt complicated ensemble by changing its output to contain each of its submodels outputs.
 
@@ -68,17 +69,16 @@ def _complicated_ensemble_adaptation(teacher: Model) -> Model:
     output3_fixed = Activation('softmax', name='softmax3')(output3_fixed)
     output4_fixed = Activation('softmax', name='softmax4')(output4_fixed)
     output5_fixed = Activation('softmax', name='softmax5')(output5_fixed)
-    # Concatenate submodels outputs.
-    outputs = Concatenate(name='concatenated_submodels_outputs')(
-        [output1_fixed, output2_fixed, output3_fixed, output4_fixed, output5_fixed]
-    )
+    # Stack submodels outputs.
+    outputs = stack([output1_fixed, output2_fixed, output3_fixed, output4_fixed, output5_fixed],
+                    axis=1, name='concatenated_submodels_outputs')
 
     # Create attention teacher.
     attention_teacher = Model(teacher.input, outputs, name='attention_' + teacher.name)
-    return attention_teacher
+    return attention_teacher, 5
 
 
-def _ensemble_adaptation(teacher: Model) -> Model:
+def _ensemble_adaptation(teacher: Model) -> Tuple[Model, int]:
     """
     Adapt an averaged predictions ensemble by changing its output to contain each of its submodels outputs.
 
@@ -89,16 +89,15 @@ def _ensemble_adaptation(teacher: Model) -> Model:
     submodels_num = len(teacher.layers[1:-1])
 
     # Concatenate submodels outputs.
-    outputs = Concatenate(name='concatenated_submodels_outputs')(
-        [teacher.layers[i + 1](teacher.input) for i in range(submodels_num)]
-    )
+    outputs = stack([teacher.layers[i + 1](teacher.input) for i in range(submodels_num)],
+                    name='concatenated_submodels_outputs')
 
     # Create attention teacher.
     attention_teacher = Model(teacher.input, outputs, name='attention_' + teacher.name)
-    return attention_teacher
+    return attention_teacher, submodels_num
 
 
-def _teacher_adaptation(teacher: Model) -> Model:
+def _teacher_adaptation(teacher: Model) -> Tuple[Model, int]:
     """
     Adapt teacher by changing its output to contain each of the submodels outputs.
 
@@ -106,18 +105,18 @@ def _teacher_adaptation(teacher: Model) -> Model:
     :return: the attention teacher.
     """
     if 'pyramid_ensemble' in teacher.name:
-        attention_teacher = _pyramid_ensemble_adaptation(teacher)
+        attention_teacher, submodels_num = _pyramid_ensemble_adaptation(teacher)
     elif 'complicated_ensemble' in teacher.name:
-        attention_teacher = _complicated_ensemble_adaptation(teacher)
+        attention_teacher, submodels_num = _complicated_ensemble_adaptation(teacher)
     elif teacher.name == 'ensemble':
-        attention_teacher = _ensemble_adaptation(teacher)
+        attention_teacher, submodels_num = _ensemble_adaptation(teacher)
     else:
         raise ValueError('Unknown teacher model has been given.')
 
-    return attention_teacher
+    return attention_teacher, submodels_num
 
 
-def _student_adaptation(student: Model, input_shape: tuple) -> Model:
+def _student_adaptation(student: Model, submodels_num, input_shape: tuple) -> Model:
     """
     Adjust student by adding a sidewalk for attention mechanism,
     in order to pay attention to each model of the teacher ensemble and create attention_student.
@@ -130,9 +129,11 @@ def _student_adaptation(student: Model, input_shape: tuple) -> Model:
     student_input = Input(student.input_shape[1:], name='student_input')
     attention_inputs = Input(input_shape, name='attention_input')
     # Create attention vector.
-    attention_vector = Dense(student.output_shape[1], activation='softmax', name='attention_vector')(attention_inputs)
-    # Multiply attention values with student's outputs.
-    outputs = Multiply(name='attention_weighted_predictions')([student(student_input), attention_vector])
+    attention_vector = Dense(submodels_num, activation='softmax', name='attention_vector')(attention_inputs)
+    # Choose a teacher.
+    chosen_teacher = attention_inputs[:, argmax(attention_vector)]
+    # Multiply teacher values with student's outputs.
+    outputs = Multiply(name='attention_weighted_predictions')([student(student_input), chosen_teacher])
     # Add a softmax.
     outputs = Activation('softmax', name='attention_weighted_predictions_softmax')(outputs)
 
@@ -154,10 +155,13 @@ def attention_framework_adaptation(x_train: ndarray, teacher: Model, student: Mo
     :return: the attention student and the generated data.
     """
     # Create attention teacher.
-    attention_teacher = _teacher_adaptation(teacher)
+    attention_teacher, submodels_num = _teacher_adaptation(teacher)
     # Get attention teacher's outputs.
     y_train = attention_teacher.predict(x_train, evaluation_batch_size, 0)
+    # Concatenate outputs.
+    y_train = concatenate([y_train[:, i] for i in range(y_train.shape[1])], axis=1)
     # Create attention student.
-    attention_student = _student_adaptation(student, input_shape=(attention_teacher.output_shape[1],))
+    attention_student = _student_adaptation(student, submodels_num,
+                                            input_shape=(attention_teacher.output_shape[2] * submodels_num,))
 
     return attention_student, y_train
