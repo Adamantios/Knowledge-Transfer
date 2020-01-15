@@ -2,9 +2,10 @@ from typing import Tuple
 
 from numpy import argmax, concatenate
 from numpy.core.multiarray import ndarray
-from tensorflow import zeros_like, stack
 from tensorflow.python.keras import Model, Input
 from tensorflow.python.keras.layers import Concatenate, Activation, Dense, Multiply
+
+from utils.tools import Crop, ZerosLike, Stack
 
 
 def _pyramid_ensemble_adaptation(teacher: Model) -> Tuple[Model, int]:
@@ -18,15 +19,18 @@ def _pyramid_ensemble_adaptation(teacher: Model) -> Tuple[Model, int]:
     output1 = teacher.get_layer('submodel_strong_output').output
     weak_1_output = teacher.get_layer('submodel_weak_1_output').output
     weak_2_output = teacher.get_layer('submodel_weak_2_output').output
+    # Create zeros.
+    weak_1_zeros = ZerosLike(name='weak_1_zeros')(weak_1_output)
+    weak_2_zeros = ZerosLike(name='weak_2_zeros')(weak_2_output)
     # Append zeros to the model outputs which do not predict all the classes.
-    output2 = Concatenate(name='submodel_weak_1_output_fixed')([weak_1_output, zeros_like(weak_1_output)])
-    output3 = Concatenate(name='submodel_weak_2_output_fixed')([zeros_like(weak_2_output), weak_2_output])
+    output2 = Concatenate(name='submodel_weak_1_output_fixed')([weak_1_output, weak_1_zeros])
+    output3 = Concatenate(name='submodel_weak_2_output_fixed')([weak_2_zeros, weak_2_output])
     # Add activations to the outputs.
     output1 = Activation('softmax', name='softmax1')(output1)
     output2 = Activation('softmax', name='softmax2')(output2)
     output3 = Activation('softmax', name='softmax3')(output3)
-    # Concatenate submodels outputs.
-    outputs = stack([output1, output2, output3], name='concatenated_submodels_outputs')
+    # Stack submodels outputs.
+    outputs = Stack(axis=1, name='stacked_submodels_outputs')([output1, output2, output3])
 
     # Create attention teacher.
     attention_teacher = Model(teacher.input, outputs, name='attention_' + teacher.name)
@@ -47,22 +51,19 @@ def _complicated_ensemble_adaptation(teacher: Model) -> Tuple[Model, int]:
     output4 = teacher.layers[-4].output
     output5 = teacher.layers[-3].output
 
+    # Create zeros.
+    zeros1 = ZerosLike(name='zeros1')(output1)
+    zeros2 = ZerosLike(name='zeros2')(output2)
+    zeros3 = ZerosLike(name='zeros3')(output3)
+    zeros4 = ZerosLike(name='zeros4')(output4)
+    zeros5 = ZerosLike(name='zeros5')(output5)
+
     # Append zeros to the model outputs which do not predict all the classes.
-    output1_fixed = Concatenate(name='output_1_fixed')(
-        [output1, zeros_like(output2), zeros_like(output3), zeros_like(output4), zeros_like(output5)]
-    )
-    output2_fixed = Concatenate(name='output_2_fixed')(
-        [zeros_like(output1), output2, zeros_like(output3), zeros_like(output4), zeros_like(output5)]
-    )
-    output3_fixed = Concatenate(name='output_3_fixed')(
-        [zeros_like(output1), zeros_like(output2), output3, zeros_like(output4), zeros_like(output5)]
-    )
-    output4_fixed = Concatenate(name='output_4_fixed')(
-        [zeros_like(output1), zeros_like(output2), zeros_like(output3), output4, zeros_like(output5)]
-    )
-    output5_fixed = Concatenate(name='output_5_fixed')(
-        [zeros_like(output1), zeros_like(output2), zeros_like(output3), zeros_like(output4), output5]
-    )
+    output1_fixed = Concatenate(name='output_1_fixed')([output1, zeros2, zeros3, zeros4, zeros5])
+    output2_fixed = Concatenate(name='output_2_fixed')([zeros1, output2, zeros3, zeros4, zeros5])
+    output3_fixed = Concatenate(name='output_3_fixed')([zeros1, zeros2, output3, zeros4, zeros5])
+    output4_fixed = Concatenate(name='output_4_fixed')([zeros1, zeros2, zeros3, output4, zeros5])
+    output5_fixed = Concatenate(name='output_5_fixed')([zeros1, zeros2, zeros3, zeros4, output5])
     # Add activations to the outputs.
     output1_fixed = Activation('softmax', name='softmax1')(output1_fixed)
     output2_fixed = Activation('softmax', name='softmax2')(output2_fixed)
@@ -70,8 +71,9 @@ def _complicated_ensemble_adaptation(teacher: Model) -> Tuple[Model, int]:
     output4_fixed = Activation('softmax', name='softmax4')(output4_fixed)
     output5_fixed = Activation('softmax', name='softmax5')(output5_fixed)
     # Stack submodels outputs.
-    outputs = stack([output1_fixed, output2_fixed, output3_fixed, output4_fixed, output5_fixed],
-                    axis=1, name='concatenated_submodels_outputs')
+    outputs = Stack(axis=1, name='stacked_submodels_outputs')(
+        [output1_fixed, output2_fixed, output3_fixed, output4_fixed, output5_fixed]
+    )
 
     # Create attention teacher.
     attention_teacher = Model(teacher.input, outputs, name='attention_' + teacher.name)
@@ -88,9 +90,10 @@ def _ensemble_adaptation(teacher: Model) -> Tuple[Model, int]:
     # Calculate the number of submodels.
     submodels_num = len(teacher.layers[1:-1])
 
-    # Concatenate submodels outputs.
-    outputs = stack([teacher.layers[i + 1](teacher.input) for i in range(submodels_num)],
-                    name='concatenated_submodels_outputs')
+    # Stack submodels outputs.
+    outputs = Stack(axis=1, name='stacked_submodels_outputs')(
+        [teacher.layers[i + 1](teacher.input) for i in range(submodels_num)]
+    )
 
     # Create attention teacher.
     attention_teacher = Model(teacher.input, outputs, name='attention_' + teacher.name)
@@ -131,7 +134,7 @@ def _student_adaptation(student: Model, submodels_num, input_shape: tuple) -> Mo
     # Create attention vector.
     attention_vector = Dense(submodels_num, activation='softmax', name='attention_vector')(attention_inputs)
     # Choose a teacher.
-    chosen_teacher = attention_inputs[:, argmax(attention_vector)]
+    chosen_teacher = Crop(1, argmax(attention_vector))(attention_inputs)
     # Multiply teacher values with student's outputs.
     outputs = Multiply(name='attention_weighted_predictions')([student(student_input), chosen_teacher])
     # Add a softmax.
