@@ -4,7 +4,7 @@ from os.path import join, exists
 from tempfile import gettempdir, _get_candidate_names
 from typing import Tuple, List, Union
 
-from numpy import concatenate, ones
+from numpy import concatenate, newaxis
 from sklearn.metrics import accuracy_score, log_loss
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
@@ -15,13 +15,14 @@ from tensorflow.python.keras.metrics import categorical_accuracy
 from tensorflow.python.keras.models import clone_model
 from tensorflow.python.keras.saving import load_model
 from tensorflow.python.keras.utils import to_categorical
+from tqdm import trange
 
 from core.adaptation import Method, kt_metric, kd_student_adaptation, kd_student_rewind, \
     pkt_plus_kd_student_adaptation, pkt_plus_kd_rewind
-from core.attention_framework import attention_framework_adaptation
+from core.attention_framework import teacher_adaptation
 from core.losses import LossType
 from utils.helpers import initialize_optimizer, load_data, preprocess_data, init_callbacks, \
-    save_students, log_results, create_path, save_res, generate_appropriate_methods
+    save_students, log_results, create_path, save_res, generate_appropriate_methods, copy_model
 from utils.logging import KTLogger
 from utils.parser import create_parser
 from utils.plotter import plot_results
@@ -34,6 +35,15 @@ def check_args() -> None:
         raise ValueError('You cannot set both clip norm and clip value.')
 
 
+def generate_supervised_metrics(method: Method) -> List:
+    """ Generates and returns a list with supervised KT metrics. """
+    kt_acc = kt_metric(categorical_accuracy, method)
+    kt_crossentropy = kt_metric(categorical_crossentropy, method)
+    kt_acc.__name__ = 'accuracy'
+    kt_crossentropy.__name__ = 'crossentropy'
+    return [kt_acc, kt_crossentropy]
+
+
 def knowledge_transfer(current_student: Model, method: Method, loss: LossType) -> Tuple[Model, History]:
     """
     Performs KT.
@@ -44,37 +54,38 @@ def knowledge_transfer(current_student: Model, method: Method, loss: LossType) -
     :return: Tuple containing a student Keras model and its training History object.
     """
     kt_logging.debug('Configuring student...')
+    weights = None
+    y_train_adapted = y_train_concat
+    y_val_adapted = y_val_concat
+    metrics = {}
 
-    # Adapt student, if necessary.
     if method == Method.DISTILLATION:
+        # Adapt student
         current_student = kd_student_adaptation(current_student, temperature)
-    if method == Method.PKT_PLUS_DISTILLATION:
+        # Create KT metrics.
+        metrics['concatenate'] = generate_supervised_metrics(method)
+        monitoring_metric = 'val_accuracy'
+    elif method == Method.PKT_PLUS_DISTILLATION:
+        # Adapt student
         current_student = pkt_plus_kd_student_adaptation(current_student, temperature)
+        # Create importance weights for the different losses.
+        weights = [kd_importance_weight, pkt_importance_weight]
+        #  Adapt the labels.
+        if not attention:
+            y_train_adapted = [y_train_concat, y_train_concat]
+        y_val_adapted = [y_val_concat, y_val_concat]
+        # Create KT metrics.
+        metrics['concatenate'] = generate_supervised_metrics(method)
+        monitoring_metric = 'val_concatenate_accuracy'
+    else:
+        # PKT performs KT, but also rotates the space, thus evaluating results has no meaning,
+        # since the neurons representing the classes are not the same anymore.
+        metrics['softmax'] = []
+        monitoring_metric = 'val_loss'
 
     # Create optimizer.
     optimizer = initialize_optimizer(optimizer_name, learning_rate, decay, beta1, beta2, rho, momentum,
                                      clip_norm, clip_value)
-
-    # Create KT metrics for Distillation and give them names.
-    # PKT performs KT, but also rotates the space, thus evaluating results has no meaning,
-    # since the neurons representing the classes are not the same anymore.
-    metrics = {}
-    if method == Method.DISTILLATION or method == Method.PKT_PLUS_DISTILLATION:
-        kt_acc = kt_metric(categorical_accuracy, method)
-        kt_acc.__name__ = 'accuracy'
-        kt_crossentropy = kt_metric(categorical_crossentropy, method)
-        kt_crossentropy.__name__ = 'crossentropy'
-        metrics['concatenate'] = [kt_acc, kt_crossentropy]
-    else:
-        if attention:
-            metrics['attention_weighted_predictions_softmax'] = []
-        else:
-            metrics['softmax'] = []
-
-    # Create importance weights for the different losses if method is PKT_PLUS_DISTILLATION.
-    weights = None
-    if method == Method.PKT_PLUS_DISTILLATION:
-        weights = [kd_importance_weight, pkt_importance_weight]
 
     # Compile student.
     current_student.compile(optimizer, loss, metrics, weights)
@@ -86,33 +97,63 @@ def knowledge_transfer(current_student: Model, method: Method, loss: LossType) -
     if use_best_model:
         tmp_weights_path = join(gettempdir(), next(_get_candidate_names()) + '.h5')
 
-    if method == Method.DISTILLATION:
-        callbacks_list = init_callbacks('val_accuracy', lr_patience, lr_decay, lr_min, early_stopping_patience,
-                                        verbosity, tmp_weights_path)
-    elif method == Method.PKT:
-        callbacks_list = init_callbacks('val_loss', lr_patience, lr_decay, lr_min, early_stopping_patience, verbosity,
-                                        tmp_weights_path)
-    else:
-        callbacks_list = init_callbacks('val_concatenate_accuracy', lr_patience, lr_decay, lr_min,
-                                        early_stopping_patience, verbosity, tmp_weights_path)
+    callbacks_list = init_callbacks(monitoring_metric, lr_patience, lr_decay, lr_min, early_stopping_patience,
+                                    verbosity, tmp_weights_path)
 
     # Train student.
-    if method == Method.PKT_PLUS_DISTILLATION:
-        history = current_student.fit(x_train, [y_train_concat, y_train_concat], batch_size=batch_size,
-                                      epochs=epochs,
-                                      validation_data=(x_val, [y_val_concat, y_val_concat]),
-                                      callbacks=callbacks_list)
+    if attention:
+        history = History()
+        best_student = copy_model(current_student, optimizer=optimizer, loss=loss, metrics=metrics,
+                                  loss_weights=weights)
+
+        for epoch in trange(epochs):
+            tmp_history = []
+            best_student_idx = 0
+            best_result = 0
+
+            n_models = y_train_adapted.shape[1]
+            for model_idx in trange(n_models):
+
+                #  Adapt the labels.
+                if method == Method.PKT_PLUS_DISTILLATION:
+                    y_train_submodel = [y_train_adapted[:, model_idx], y_train_adapted[:, model_idx]]
+                else:
+                    y_train_submodel = y_train_adapted[:, model_idx]
+
+                candidate_student = copy_model(best_student, optimizer=optimizer, loss=loss, metrics=metrics,
+                                               loss_weights=weights)
+                tmp_history.append(candidate_student.fit(x_train, y_train_submodel,
+                                                         batch_size=batch_size, epochs=1, verbose=0,
+                                                         validation_data=(x_val, y_val_adapted)))
+                result = tmp_history[model_idx].history['val_loss'][0]
+                if result < best_result or model_idx == 0:
+                    best_result = result
+                    best_student_idx = model_idx
+                    best_student = copy_model(candidate_student, optimizer=optimizer, loss=loss, metrics=metrics,
+                                              loss_weights=weights)
+
+            # Update history object.
+            if epoch:
+                history.epoch.append(epoch)
+                for key, value in tmp_history[best_student_idx].history.items():
+                    history.history.setdefault(key, []).append(value[0])
+                history.model = tmp_history[best_student_idx].model
+                history.params = tmp_history[best_student_idx].params
+            else:
+                history = tmp_history[best_student_idx]
+
+        # Set student with the best trained.
+        current_student = best_student
     else:
-        history = current_student.fit(x_train, y_train_concat, batch_size=batch_size, epochs=epochs,
-                                      validation_data=(x_val, y_val_concat),
-                                      callbacks=callbacks_list)
+        history = current_student.fit(x_train, y_train_adapted, batch_size=batch_size, callbacks=callbacks_list,
+                                      epochs=epochs, validation_data=(x_val, y_val_adapted), verbose=verbosity)
 
     if exists(tmp_weights_path):
         # Load best weights and delete the temp file.
         current_student.load_weights(tmp_weights_path)
         remove(tmp_weights_path)
 
-    # Rewind student to normal, if necessary.
+    # Rewind student to its normal state, if necessary.
     if method == Method.DISTILLATION:
         current_student = kd_student_rewind(current_student)
     elif method == Method.PKT_PLUS_DISTILLATION:
@@ -135,7 +176,7 @@ def evaluate_results(results: list) -> None:
         kt_logging.info('Evaluating {}...'.format(result['method']))
         result['network'].compile(optimizer, mse, [categorical_accuracy, categorical_crossentropy])
         if result['method'] == 'Teacher' and attention:
-            result['evaluation'] = result['network'].evaluate(x_test['student_input'], y_test, evaluation_batch_size,
+            result['evaluation'] = result['network'].evaluate(x_test, y_test, evaluation_batch_size,
                                                               verbosity)
         elif result['method'] != 'Probabilistic Knowledge Transfer':
             result['evaluation'] = result['network'].evaluate(x_test, y_test, evaluation_batch_size, verbosity)
@@ -260,26 +301,29 @@ if __name__ == '__main__':
     # Split data to train and val sets.
     x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.3, random_state=0)
 
-    # Get teacher's outputs.
-    kt_logging.info('Getting teacher\'s predictions...')
-    y_teacher_train = teacher.predict(x_train, evaluation_batch_size, verbosity)
-    y_teacher_val = teacher.predict(x_val, evaluation_batch_size, verbosity)
-
-    # Concatenate teacher's outputs with true labels.
-    y_train_concat = concatenate([y_train, y_teacher_train], axis=1)
-    y_val_concat = concatenate([y_val, y_teacher_val], axis=1)
-
     # Adapt for Attention KT framework if needed.
     if attention:
+        # Adapt for attention framework.
         kt_logging.info('Preparing Attention KT framework...')
-        student, x_train_attention = attention_framework_adaptation(x_train, teacher, student, evaluation_batch_size)
-        # Add attention training data.
-        x_train = {'student_input': x_train, 'attention_input': x_train_attention}
-        # Create ones for the attention input on val and test time.
-        x_val_attention = ones((x_val.shape[0], x_train_attention.shape[1]))
-        x_val = {'student_input': x_val, 'attention_input': x_val_attention}
-        x_test_attention = ones((x_test.shape[0], x_train_attention.shape[1]))
-        x_test = {'student_input': x_test, 'attention_input': x_test_attention}
+        attention_teacher = teacher_adaptation(teacher)
+
+        # Get attention teacher's outputs.
+        kt_logging.info('Getting teacher\'s predictions...')
+        y_teacher_train = attention_teacher.predict(x_train, evaluation_batch_size, verbosity)
+
+        # Concatenate train labels as many times as the number of sub-teachers in the teacher model.
+        y_train_concat = concatenate([y_train[:, newaxis] for _ in range(y_teacher_train.shape[1])], axis=1)
+        # Concatenate teacher's outputs with true labels.
+        y_train_concat = concatenate([y_train_concat, y_teacher_train], axis=2)
+    else:
+        # Get teacher's outputs.
+        kt_logging.info('Getting teacher\'s predictions...')
+        y_teacher_train = teacher.predict(x_train, evaluation_batch_size, verbosity)
+        # Concatenate teacher's outputs with true labels.
+        y_train_concat = concatenate([y_train, y_teacher_train], axis=1)
+
+    y_teacher_val = teacher.predict(x_val, evaluation_batch_size, verbosity)
+    y_val_concat = concatenate([y_val, y_teacher_val], axis=1)
 
     # Run kt.
     kt_logging.info('Starting KT method(s)...')

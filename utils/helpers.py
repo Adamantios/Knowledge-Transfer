@@ -6,7 +6,9 @@ from os.path import dirname, exists, join
 from typing import Union, Tuple, Dict, List
 
 from numpy import ndarray, empty
+from tensorflow.python.keras import Model
 from tensorflow.python.keras.callbacks import ReduceLROnPlateau, EarlyStopping, ModelCheckpoint
+from tensorflow.python.keras.models import clone_model
 from tensorflow.python.keras.optimizers import adam, rmsprop, sgd, adagrad, adadelta, adamax
 from tensorflow.python.keras.saving import save_model
 from tensorflow.python.keras.utils.layer_utils import count_params
@@ -279,3 +281,18 @@ def generate_appropriate_methods(kt_methods: Union[str, List[str]], temperature:
             methods.append(pkt_plus_distillation)
 
     return methods
+
+
+def copy_model(model: Model, **compilation_args) -> Model:
+    """
+    Copies a Keras Model.
+
+    :param model: the model to be copied.
+    :return: the copied Model.
+    """
+    copy = clone_model(model)
+    copy.build(model.input_shape)
+    copy.compile(**compilation_args)
+    copy.set_weights(model.get_weights())
+
+    return copy
