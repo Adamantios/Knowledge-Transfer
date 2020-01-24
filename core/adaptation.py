@@ -4,7 +4,7 @@ from typing import Callable, Tuple
 from tensorflow import Tensor, divide, identity
 from tensorflow.python import shape, int32, cast
 from tensorflow.python.keras import Model
-from tensorflow.python.keras.layers import Activation, concatenate, Flatten, Dense
+from tensorflow.python.keras.layers import Activation, concatenate, Flatten, Dense, Lambda
 
 MetricType = Callable[[Tensor, Tensor], Tensor]
 
@@ -55,7 +55,7 @@ def kd_student_adaptation(model: Model, temperature: float) -> Model:
     if temperature == 1:
         probabilities_t = identity(probabilities)
     else:
-        probabilities_t = Activation(softmax_with_temperature(temperature), name='softmax_with_temperature')(logits)
+        probabilities_t = Lambda(softmax_with_temperature(temperature), name='softmax_with_temperature')(logits)
 
     outputs = concatenate([probabilities, probabilities_t], name='concatenate')
 
