@@ -105,16 +105,22 @@ def knowledge_transfer(current_student: Model, method: Method, loss: LossType) -
         history = History()
         best_student = copy_model(current_student, optimizer=optimizer, loss=loss, metrics=metrics,
                                   loss_weights=weights)
+        progressbar_epochs = trange(epochs, unit='epoch')
 
-        for epoch in trange(epochs):
+        for epoch in progressbar_epochs:
             tmp_history = []
             best_student_idx = 0
             best_result = 0
-
             n_models = y_train_adapted.shape[1]
-            for model_idx in trange(n_models):
+            progressbar_submodels = trange(n_models, desc='Submodel training', unit='submodel', leave=False)
 
-                #  Adapt the labels.
+            for model_idx in progressbar_submodels:
+                # TODO replace unnecessary loop of serial training of the submodels and convert it to parallel,
+                #  by changing the student's outputs to an output for each model
+                #  and creating a loss function which chooses the best output, by means of a loss metric
+                #  and updates all the weights of the submodels output layers
+                #  with the weights of the best submodel's layer.
+                # Adapt the labels.
                 if method == Method.PKT_PLUS_DISTILLATION:
                     y_train_submodel = [y_train_adapted[:, model_idx], y_train_adapted[:, model_idx]]
                 else:
@@ -131,6 +137,7 @@ def knowledge_transfer(current_student: Model, method: Method, loss: LossType) -
                     best_student_idx = model_idx
                     best_student = copy_model(candidate_student, optimizer=optimizer, loss=loss, metrics=metrics,
                                               loss_weights=weights)
+                    progressbar_epochs.set_description(desc='Current loss {:.4f}'.format(best_result))
 
             # Update history object.
             if epoch:
