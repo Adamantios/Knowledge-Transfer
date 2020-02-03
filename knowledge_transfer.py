@@ -18,9 +18,9 @@ from tensorflow.python.keras.utils import to_categorical
 
 from core.adaptation import Method, kt_metric, kd_student_adaptation, kd_student_rewind, \
     pkt_plus_kd_student_adaptation, pkt_plus_kd_rewind
-from core.attention_framework import attention_student_rewind, attention_teacher_adaptation, \
-    attention_student_adaptation
 from core.losses import LossType
+from core.selective_learning_framework import selective_learning_student_rewind, \
+    selective_learning_teacher_adaptation, selective_learning_student_adaptation
 from utils.helpers import initialize_optimizer, load_data, preprocess_data, init_callbacks, \
     save_students, log_results, create_path, save_res, generate_appropriate_methods
 from utils.logging import KTLogger
@@ -71,11 +71,11 @@ def knowledge_transfer(current_student: Model, method: Method, loss: Union[LossT
         current_student = pkt_plus_kd_student_adaptation(current_student, temperature)
         # Create importance weights for the different losses.
         weights = [kd_importance_weight, pkt_importance_weight]
-        if attention:
-            attention_weights = []
+        if selective_learning:
+            selective_learning_weights = []
             for _ in range(n_submodels):
-                attention_weights.extend(weights)
-            weights = attention_weights
+                selective_learning_weights.extend(weights)
+            weights = selective_learning_weights
 
             #  Adapt the labels.
             y_train_adapted.extend(y_train_adapted)
@@ -93,8 +93,8 @@ def knowledge_transfer(current_student: Model, method: Method, loss: Union[LossT
         # since the neurons representing the classes are not the same anymore.
         monitoring_metric = 'val_loss'
 
-    if attention:
-        current_student = attention_student_adaptation(current_student, n_submodels)
+    if selective_learning:
+        current_student = selective_learning_student_adaptation(current_student, n_submodels)
         monitoring_metric = 'val_loss'
 
     # Create optimizer.
@@ -112,7 +112,7 @@ def knowledge_transfer(current_student: Model, method: Method, loss: Union[LossT
         tmp_weights_path = join(gettempdir(), next(_get_candidate_names()) + '.h5')
 
     callbacks_list = init_callbacks(monitoring_metric, lr_patience, lr_decay, lr_min, early_stopping_patience,
-                                    verbosity, tmp_weights_path, attention)
+                                    verbosity, tmp_weights_path, selective_learning)
 
     # Train student.
     history = current_student.fit(x_train, y_train_adapted, batch_size=batch_size, callbacks=callbacks_list,
@@ -124,8 +124,9 @@ def knowledge_transfer(current_student: Model, method: Method, loss: Union[LossT
         remove(tmp_weights_path)
 
     # Rewind student to its normal state, if necessary.
-    if attention:
-        current_student = attention_student_rewind(current_student, optimizer=optimizer, loss=loss[0], metrics=metrics)
+    if selective_learning:
+        current_student = selective_learning_student_rewind(current_student, optimizer=optimizer, loss=loss[0],
+                                                            metrics=metrics)
     if method == Method.DISTILLATION:
         current_student = kd_student_rewind(current_student)
     elif method == Method.PKT_PLUS_DISTILLATION:
@@ -147,7 +148,7 @@ def evaluate_results(results: list) -> None:
     for result in results:
         kt_logging.info('Evaluating {}...'.format(result['method']))
         result['network'].compile(optimizer, mse, [categorical_accuracy, categorical_crossentropy])
-        if result['method'] == 'Teacher' and attention:
+        if result['method'] == 'Teacher' and selective_learning:
             result['evaluation'] = result['network'].evaluate(x_test, y_test, evaluation_batch_size,
                                                               verbosity)
         elif result['method'] != 'Probabilistic Knowledge Transfer':
@@ -169,7 +170,7 @@ def evaluate_results(results: list) -> None:
 
     # Plot training information.
     save_folder = out_folder if save_results else None
-    plot_results(results, epochs, save_folder, attention)
+    plot_results(results, epochs, save_folder, selective_learning)
 
     # Log results.
     log_results(results)
@@ -221,7 +222,7 @@ if __name__ == '__main__':
     student = load_model(args.student, compile=False)
     dataset: str = args.dataset
     kt_methods: Union[str, List[str]] = args.method
-    attention = args.attention
+    selective_learning = args.selective_learning
     temperature: float = args.temperature
     kd_lambda_supervised: float = args.kd_lambda_supervised
     pkt_lambda_supervised: float = args.pkt_lambda_supervised
@@ -274,17 +275,17 @@ if __name__ == '__main__':
     # Split data to train and val sets.
     x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.3, random_state=0)
 
-    # Adapt for Attention KT framework if needed.
+    # Adapt for selective_learning KT framework if needed.
     n_submodels = 0
-    if attention:
-        # Adapt for attention framework.
-        kt_logging.info('Preparing Attention KT framework...')
-        attention_teacher, n_submodels = attention_teacher_adaptation(teacher)
+    if selective_learning:
+        # Adapt for selective_learning framework.
+        kt_logging.info('Preparing selective_learning KT framework...')
+        selective_learning_teacher, n_submodels = selective_learning_teacher_adaptation(teacher)
 
-        # Get attention teacher's outputs.
+        # Get selective_learning teacher's outputs.
         kt_logging.info('Getting teacher\'s predictions...')
-        y_teacher_train = attention_teacher.predict(x_train, evaluation_batch_size, verbosity)
-        y_teacher_val = attention_teacher.predict(x_val, evaluation_batch_size, verbosity)
+        y_teacher_train = selective_learning_teacher.predict(x_train, evaluation_batch_size, verbosity)
+        y_teacher_val = selective_learning_teacher.predict(x_val, evaluation_batch_size, verbosity)
 
         # Repeat labels as many times as the number of sub-teachers in the teacher model.
         y_train_list = [y_train for _ in range(n_submodels)]

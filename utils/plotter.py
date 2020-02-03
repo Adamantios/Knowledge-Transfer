@@ -6,14 +6,14 @@ import matplotlib.pyplot as plt
 from numpy import asarray
 
 
-def plot_results(results: List[Dict], epochs: int, save_folder: Optional[str], attention: bool) -> None:
+def plot_results(results: List[Dict], epochs: int, save_folder: Optional[str], selective_learning: bool) -> None:
     """
     Plots the KT results.
 
     :param results: the results for each one of the KT method applied.
     :param epochs: the number of epochs the experiment ran for.
     :param save_folder: the folder in which the plots will be saved.
-    :param attention: Flag which indicates if attention framework has been used.
+    :param selective_learning: Flag which indicates if selective_learning framework has been used.
     """
     # Plot every metric result for every KT method.
     for result in results:
@@ -65,7 +65,7 @@ def plot_results(results: List[Dict], epochs: int, save_folder: Optional[str], a
                     continue
                 elif result['method'] == 'PKT plus Distillation':
                     # Plot teacher PKT plus Distillation.
-                    if attention:
+                    if selective_learning:
                         ax.plot(list(result['history']['val_student_0_' + metric]), label=result['method'],
                                 linestyle=next(linestyles_pool))
                     else:
@@ -73,7 +73,7 @@ def plot_results(results: List[Dict], epochs: int, save_folder: Optional[str], a
                                 linestyle=next(linestyles_pool))
                 else:
                     # Plot method's current metric results.
-                    if attention:
+                    if selective_learning:
                         ax.plot(list(result['history']['val_student_0_' + metric]), label=result['method'],
                                 linestyle=next(linestyles_pool))
                     else:

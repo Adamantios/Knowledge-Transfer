@@ -11,7 +11,7 @@ def _pyramid_ensemble_adaptation(teacher: Model) -> Tuple[Model, int]:
     Adapt pyramid ensemble by changing its output to contain each of its submodels outputs.
 
     :param teacher: the pyramid ensemble.
-    :return: the attention pyramid ensemble and the submodels number.
+    :return: the selective_learning pyramid ensemble and the submodels number.
     """
     # Get each submodel's outputs.
     output1 = teacher.get_layer('submodel_strong_output').output
@@ -30,9 +30,9 @@ def _pyramid_ensemble_adaptation(teacher: Model) -> Tuple[Model, int]:
     # Stack submodels outputs.
     outputs = Stack(axis=1, name='stacked_submodels_outputs')([output1, output2, output3])
 
-    # Create attention teacher.
-    attention_teacher = Model(teacher.input, outputs, name='attention_' + teacher.name)
-    return attention_teacher, 3
+    # Create selective_learning teacher.
+    selective_learning_teacher = Model(teacher.input, outputs, name='selective_learning_' + teacher.name)
+    return selective_learning_teacher, 3
 
 
 def _complicated_ensemble_adaptation(teacher: Model) -> Tuple[Model, int]:
@@ -40,7 +40,7 @@ def _complicated_ensemble_adaptation(teacher: Model) -> Tuple[Model, int]:
     Adapt complicated ensemble by changing its output to contain each of its submodels outputs.
 
     :param teacher: the complicated ensemble.
-    :return: the attention complicated ensemble and the number of submodels.
+    :return: the selective_learning complicated ensemble and the number of submodels.
     """
     # Get each submodel's outputs.
     output1 = teacher.layers[-7].output
@@ -73,9 +73,9 @@ def _complicated_ensemble_adaptation(teacher: Model) -> Tuple[Model, int]:
         [output1_fixed, output2_fixed, output3_fixed, output4_fixed, output5_fixed]
     )
 
-    # Create attention teacher.
-    attention_teacher = Model(teacher.input, outputs, name='attention_' + teacher.name)
-    return attention_teacher, 5
+    # Create selective_learning teacher.
+    selective_learning_teacher = Model(teacher.input, outputs, name='selective_learning_' + teacher.name)
+    return selective_learning_teacher, 5
 
 
 def _ensemble_adaptation(teacher: Model) -> Tuple[Model, int]:
@@ -83,7 +83,7 @@ def _ensemble_adaptation(teacher: Model) -> Tuple[Model, int]:
     Adapt an averaged predictions ensemble by changing its output to contain each of its submodels outputs.
 
     :param teacher: the ensemble.
-    :return: the attention ensemble and the number of submodels.
+    :return: the selective_learning ensemble and the number of submodels.
     """
     # Calculate the number of submodels.
     submodels_num = len(teacher.layers[1:-1])
@@ -93,37 +93,37 @@ def _ensemble_adaptation(teacher: Model) -> Tuple[Model, int]:
         [teacher.layers[i + 1](teacher.input) for i in range(submodels_num)]
     )
 
-    # Create attention teacher.
-    attention_teacher = Model(teacher.input, outputs, name='attention_' + teacher.name)
-    return attention_teacher, submodels_num
+    # Create selective_learning teacher.
+    selective_learning_teacher = Model(teacher.input, outputs, name='selective_learning_' + teacher.name)
+    return selective_learning_teacher, submodels_num
 
 
-def attention_teacher_adaptation(teacher: Model) -> Tuple[Model, int]:
+def selective_learning_teacher_adaptation(teacher: Model) -> Tuple[Model, int]:
     """
     Adapt teacher by changing its output to contain each of the submodels outputs.
 
     :param teacher: the teacher to adapt.
-    :return: the attention teacher and the number of submodels.
+    :return: the selective_learning teacher and the number of submodels.
     """
     if 'pyramid_ensemble' in teacher.name:
-        attention_teacher, submodels_num = _pyramid_ensemble_adaptation(teacher)
+        selective_learning_teacher, submodels_num = _pyramid_ensemble_adaptation(teacher)
     elif 'complicated_ensemble' in teacher.name:
-        attention_teacher, submodels_num = _complicated_ensemble_adaptation(teacher)
+        selective_learning_teacher, submodels_num = _complicated_ensemble_adaptation(teacher)
     elif teacher.name == 'ensemble':
-        attention_teacher, submodels_num = _ensemble_adaptation(teacher)
+        selective_learning_teacher, submodels_num = _ensemble_adaptation(teacher)
     else:
         raise ValueError('Unknown teacher model has been given.')
 
-    return attention_teacher, submodels_num
+    return selective_learning_teacher, submodels_num
 
 
-def attention_student_adaptation(student: Model, n_models: int) -> Model:
+def selective_learning_student_adaptation(student: Model, n_models: int) -> Model:
     """
     Adapt student by changing its outputs to predict the classes for every sub-teacher.
 
     :param student: the student to adapt.
     :param n_models: the number of teacher submodels.
-    :return: the attention student.
+    :return: the selective_learning student.
     """
     outputs = []
     for input_idx in range(n_models):
@@ -132,24 +132,24 @@ def attention_student_adaptation(student: Model, n_models: int) -> Model:
         # Generate outputs.
         outputs.append(submodel(submodel.input))
 
-    # Create attention student.
-    attention_student = Model(student.input, outputs, name='attention_{}'.format(student.name))
+    # Create selective_learning student.
+    selective_learning_student = Model(student.input, outputs, name='selective_learning_{}'.format(student.name))
 
-    return attention_student
+    return selective_learning_student
 
 
-def attention_student_rewind(student: Model, **compilation_data) -> Model:
+def selective_learning_student_rewind(student: Model, **compilation_data) -> Model:
     """
-    Reverts the attention framework transformation from the student.
+    Reverts the selective_learning framework transformation from the student.
 
     :param student: the student to be rewinded.
     :return: the rewinded student.
     """
-    # Just get any submodel's output, because after training the attention student,
+    # Just get any submodel's output, because after training the selective_learning student,
     # all its submodels outputs are going to have the same weights.
     submodel = student.layers[1]
     outputs = submodel.call(student.input)
-    rewinded_student = Model(student.input, outputs, name=student.name.replace('attention_', ''))
+    rewinded_student = Model(student.input, outputs, name=student.name.replace('selective_learning_', ''))
 
     # Recompile model.
     rewinded_student.compile(**compilation_data)

@@ -98,8 +98,8 @@ def initialize_optimizer(optimizer_name: str, learning_rate: float = None, decay
     return opt
 
 
-class _AttentionCallback(Callback):
-    """ Callback for the Attention framework. """
+class _SelectiveLearningCallback(Callback):
+    """ Callback for the Selective Learning framework. """
 
     def __init__(self):
         super().__init__()
@@ -129,7 +129,7 @@ class _AttentionCallback(Callback):
 
 
 def init_callbacks(monitor: str, lr_patience: int, lr_decay: float, lr_min: float, early_stopping_patience: int,
-                   verbosity: int, weights_path: str, attention: bool) -> []:
+                   verbosity: int, weights_path: str, selective_learning: bool) -> []:
     """
     Initializes callbacks for the training procedure.
 
@@ -140,12 +140,12 @@ def init_callbacks(monitor: str, lr_patience: int, lr_decay: float, lr_min: floa
     :param early_stopping_patience: the number of epochs to wait before early stopping.
     :param verbosity: the verbosity of the callbacks.
     :param weights_path: path to the weights to be saved. Pass None, in order to not save the best model.
-    :param attention: whether the attention framework is being used.
+    :param selective_learning: whether the selective_learning framework is being used.
     :return: the callbacks list.
     """
     callbacks = []
 
-    if not attention and weights_path is not None:
+    if not selective_learning and weights_path is not None:
         callbacks.append(ModelCheckpoint(weights_path, monitor, save_weights_only=True, save_best_only=True))
 
     if lr_decay > 0 or lr_patience == 0:
@@ -158,8 +158,8 @@ def init_callbacks(monitor: str, lr_patience: int, lr_decay: float, lr_min: floa
                                        mode='max', restore_best_weights=True, verbose=verbosity)
         callbacks.append(early_stopping)
 
-    if attention:
-        callbacks.append(_AttentionCallback())
+    if selective_learning:
+        callbacks.append(_SelectiveLearningCallback())
 
     return callbacks
 
@@ -267,7 +267,7 @@ def save_res(results: List, filepath: str) -> None:
 
 
 def generate_appropriate_methods(kt_methods: Union[str, List[str]], temperature: float, kd_lambda_supervised: float,
-                                 pkt_lambda_supervised: float, attention_outputs: int) -> List[dict]:
+                                 pkt_lambda_supervised: float, selective_learning_outputs: int) -> List[dict]:
     """
     Generates and returns a list of the methods which need to be applied, depending on the user input.
     
@@ -275,7 +275,7 @@ def generate_appropriate_methods(kt_methods: Union[str, List[str]], temperature:
     :param temperature: the temperature for the distillation.
     :param kd_lambda_supervised: the weight for supervised KD loss.
     :param pkt_lambda_supervised: the weight for supervised PKT loss.
-    :param attention_outputs: the number of outputs if attention framework is being used.
+    :param selective_learning_outputs: the number of outputs if selective_learning framework is being used.
     :return: a list of dicts containing all the methods, formatted appropriately.
     """
     methods: List[dict] = []
@@ -313,13 +313,13 @@ def generate_appropriate_methods(kt_methods: Union[str, List[str]], temperature:
         if 'pkt+distillation' in kt_methods:
             methods.append(pkt_plus_distillation)
 
-    if attention_outputs:
+    if selective_learning_outputs:
         new_loss = []
         for method in methods:
             if isinstance(method['loss'], list):
-                [new_loss.extend(method['loss']) for _ in range(attention_outputs)]
+                [new_loss.extend(method['loss']) for _ in range(selective_learning_outputs)]
                 method['loss'] = new_loss
             else:
-                method['loss'] = [method['loss'] for _ in range(attention_outputs)]
+                method['loss'] = [method['loss'] for _ in range(selective_learning_outputs)]
 
     return methods
