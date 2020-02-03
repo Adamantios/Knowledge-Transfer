@@ -5,10 +5,8 @@ from os import makedirs
 from os.path import dirname, exists, join
 from typing import Union, Tuple, Dict, List
 
-from numpy import ndarray, empty
-from tensorflow.python.keras import Model
-from tensorflow.python.keras.callbacks import ReduceLROnPlateau, EarlyStopping, ModelCheckpoint
-from tensorflow.python.keras.models import clone_model
+from numpy import ndarray, empty, inf
+from tensorflow.python.keras.callbacks import ReduceLROnPlateau, EarlyStopping, Callback, ModelCheckpoint
 from tensorflow.python.keras.optimizers import adam, rmsprop, sgd, adagrad, adadelta, adamax
 from tensorflow.python.keras.saving import save_model
 from tensorflow.python.keras.utils.layer_utils import count_params
@@ -100,8 +98,38 @@ def initialize_optimizer(optimizer_name: str, learning_rate: float = None, decay
     return opt
 
 
+class _AttentionCallback(Callback):
+    """ Callback for the Attention framework. """
+
+    def __init__(self):
+        super().__init__()
+
+    def on_epoch_end(self, epoch: int, logs=None):
+        # Find the layer(sub-model) of the model with the largest benefit for the student.
+        best_layer_idx = None
+        best_metric_result = inf
+        range_of_submodels = range(len(self.model.output))
+
+        for submodel_idx in range_of_submodels:
+            layer_idx = submodel_idx + 1
+            current_metric_result = logs['val_student_{}_loss'.format(submodel_idx)]
+            # We want the best metric result of the submodels for each epoch.
+            if current_metric_result < best_metric_result:
+                best_layer_idx = layer_idx
+                best_metric_result = current_metric_result
+
+        # Retrieve the best weights.
+        best_weights = self.model.layers[best_layer_idx].get_weights()
+
+        # Set all the sub-output-layers weights equal with the best one's. (Greedy approach)
+        for submodel_idx in range_of_submodels:
+            layer_idx = submodel_idx + 1
+            if layer_idx != best_layer_idx:
+                self.model.layers[layer_idx].set_weights(best_weights)
+
+
 def init_callbacks(monitor: str, lr_patience: int, lr_decay: float, lr_min: float, early_stopping_patience: int,
-                   verbosity: int, model_path: str) -> []:
+                   verbosity: int, weights_path: str, attention: bool) -> []:
     """
     Initializes callbacks for the training procedure.
 
@@ -111,13 +139,14 @@ def init_callbacks(monitor: str, lr_patience: int, lr_decay: float, lr_min: floa
     :param lr_min: the minimum learning rate to be reached.
     :param early_stopping_patience: the number of epochs to wait before early stopping.
     :param verbosity: the verbosity of the callbacks.
-    :param model_path: path to the model to be saved. Pass None, in order to not save the best model.
+    :param weights_path: path to the weights to be saved. Pass None, in order to not save the best model.
+    :param attention: whether the attention framework is being used.
     :return: the callbacks list.
     """
     callbacks = []
 
-    if model_path is not None:
-        callbacks.append(ModelCheckpoint(model_path, monitor, save_weights_only=True, save_best_only=True))
+    if not attention and weights_path is not None:
+        callbacks.append(ModelCheckpoint(weights_path, monitor, save_weights_only=True, save_best_only=True))
 
     if lr_decay > 0 or lr_patience == 0:
         learning_rate_reduction = ReduceLROnPlateau(monitor=monitor, patience=lr_patience, verbose=verbosity,
@@ -128,6 +157,9 @@ def init_callbacks(monitor: str, lr_patience: int, lr_decay: float, lr_min: floa
         early_stopping = EarlyStopping(monitor=monitor, patience=early_stopping_patience, min_delta=.0002,
                                        mode='max', restore_best_weights=True, verbose=verbosity)
         callbacks.append(early_stopping)
+
+    if attention:
+        callbacks.append(_AttentionCallback())
 
     return callbacks
 
@@ -235,17 +267,18 @@ def save_res(results: List, filepath: str) -> None:
 
 
 def generate_appropriate_methods(kt_methods: Union[str, List[str]], temperature: float, kd_lambda_supervised: float,
-                                 pkt_lambda_supervised: float) -> List[dict]:
+                                 pkt_lambda_supervised: float, attention_outputs: int) -> List[dict]:
     """
     Generates and returns a list of the methods which need to be applied, depending on the user input.
     
-    :param kt_methods: the methods to be used for KT. 
+    :param kt_methods: the methods to be used for KT.
     :param temperature: the temperature for the distillation.
     :param kd_lambda_supervised: the weight for supervised KD loss.
     :param pkt_lambda_supervised: the weight for supervised PKT loss.
+    :param attention_outputs: the number of outputs if attention framework is being used.
     :return: a list of dicts containing all the methods, formatted appropriately.
     """
-    methods = []
+    methods: List[dict] = []
 
     kd = {
         'name': 'Knowledge Distillation',
@@ -280,19 +313,13 @@ def generate_appropriate_methods(kt_methods: Union[str, List[str]], temperature:
         if 'pkt+distillation' in kt_methods:
             methods.append(pkt_plus_distillation)
 
+    if attention_outputs:
+        new_loss = []
+        for method in methods:
+            if isinstance(method['loss'], list):
+                [new_loss.extend(method['loss']) for _ in range(attention_outputs)]
+                method['loss'] = new_loss
+            else:
+                method['loss'] = [method['loss'] for _ in range(attention_outputs)]
+
     return methods
-
-
-def copy_model(model: Model, **compilation_args) -> Model:
-    """
-    Copies a Keras Model.
-
-    :param model: the model to be copied.
-    :return: the copied Model.
-    """
-    copy = clone_model(model)
-    copy.build(model.input_shape)
-    copy.compile(**compilation_args)
-    copy.set_weights(model.get_weights())
-
-    return copy

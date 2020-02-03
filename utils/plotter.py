@@ -6,13 +6,14 @@ import matplotlib.pyplot as plt
 from numpy import asarray
 
 
-def plot_results(results: List[Dict], epochs: int, save_folder: Optional[str]) -> None:
+def plot_results(results: List[Dict], epochs: int, save_folder: Optional[str], attention: bool) -> None:
     """
     Plots the KT results.
 
     :param results: the results for each one of the KT method applied.
     :param epochs: the number of epochs the experiment ran for.
     :param save_folder: the folder in which the plots will be saved.
+    :param attention: Flag which indicates if attention framework has been used.
     """
     # Plot every metric result for every KT method.
     for result in results:
@@ -64,12 +65,20 @@ def plot_results(results: List[Dict], epochs: int, save_folder: Optional[str]) -
                     continue
                 elif result['method'] == 'PKT plus Distillation':
                     # Plot teacher PKT plus Distillation.
-                    ax.plot(list(result['history']['val_concatenate_' + metric]), label=result['method'],
-                            linestyle=next(linestyles_pool))
+                    if attention:
+                        ax.plot(list(result['history']['val_student_0_' + metric]), label=result['method'],
+                                linestyle=next(linestyles_pool))
+                    else:
+                        ax.plot(list(result['history']['val_concatenate_' + metric]), label=result['method'],
+                                linestyle=next(linestyles_pool))
                 else:
                     # Plot method's current metric results.
-                    ax.plot(list(result['history']['val_' + metric]), label=result['method'],
-                            linestyle=next(linestyles_pool))
+                    if attention:
+                        ax.plot(list(result['history']['val_student_0_' + metric]), label=result['method'],
+                                linestyle=next(linestyles_pool))
+                    else:
+                        ax.plot(list(result['history']['val_' + metric]), label=result['method'],
+                                linestyle=next(linestyles_pool))
 
             ax.legend(loc='best', fontsize='large')
             plt.show()

@@ -4,7 +4,7 @@ from os.path import join, exists
 from tempfile import gettempdir, _get_candidate_names
 from typing import Tuple, List, Union
 
-from numpy import concatenate, newaxis
+from numpy import concatenate
 from sklearn.metrics import accuracy_score, log_loss
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
@@ -15,14 +15,14 @@ from tensorflow.python.keras.metrics import categorical_accuracy
 from tensorflow.python.keras.models import clone_model
 from tensorflow.python.keras.saving import load_model
 from tensorflow.python.keras.utils import to_categorical
-from tqdm import trange
 
 from core.adaptation import Method, kt_metric, kd_student_adaptation, kd_student_rewind, \
     pkt_plus_kd_student_adaptation, pkt_plus_kd_rewind
-from core.attention_framework import teacher_adaptation
+from core.attention_framework import attention_student_rewind, attention_teacher_adaptation, \
+    attention_student_adaptation
 from core.losses import LossType
 from utils.helpers import initialize_optimizer, load_data, preprocess_data, init_callbacks, \
-    save_students, log_results, create_path, save_res, generate_appropriate_methods, copy_model
+    save_students, log_results, create_path, save_res, generate_appropriate_methods
 from utils.logging import KTLogger
 from utils.parser import create_parser
 from utils.plotter import plot_results
@@ -44,7 +44,8 @@ def generate_supervised_metrics(method: Method) -> List:
     return [kt_acc, kt_crossentropy]
 
 
-def knowledge_transfer(current_student: Model, method: Method, loss: LossType) -> Tuple[Model, History]:
+def knowledge_transfer(current_student: Model, method: Method, loss: Union[LossType, List[LossType]]) -> \
+        Tuple[Model, History]:
     """
     Performs KT.
 
@@ -63,24 +64,37 @@ def knowledge_transfer(current_student: Model, method: Method, loss: LossType) -
         # Adapt student
         current_student = kd_student_adaptation(current_student, temperature)
         # Create KT metrics.
-        metrics['concatenate'] = generate_supervised_metrics(method)
+        metrics = generate_supervised_metrics(method)
         monitoring_metric = 'val_accuracy'
     elif method == Method.PKT_PLUS_DISTILLATION:
         # Adapt student
         current_student = pkt_plus_kd_student_adaptation(current_student, temperature)
         # Create importance weights for the different losses.
         weights = [kd_importance_weight, pkt_importance_weight]
-        #  Adapt the labels.
-        if not attention:
+        if attention:
+            attention_weights = []
+            for _ in range(n_submodels):
+                attention_weights.extend(weights)
+            weights = attention_weights
+
+            #  Adapt the labels.
+            y_train_adapted.extend(y_train_adapted)
+            y_val_adapted.extend(y_val_adapted)
+        else:
+            #  Adapt the labels.
             y_train_adapted = [y_train_concat, y_train_concat]
-        y_val_adapted = [y_val_concat, y_val_concat]
+            y_val_adapted = [y_val_concat, y_val_concat]
+
         # Create KT metrics.
-        metrics['concatenate'] = generate_supervised_metrics(method)
+        metrics = generate_supervised_metrics(method)
         monitoring_metric = 'val_concatenate_accuracy'
     else:
         # PKT performs KT, but also rotates the space, thus evaluating results has no meaning,
         # since the neurons representing the classes are not the same anymore.
-        metrics['softmax'] = []
+        monitoring_metric = 'val_loss'
+
+    if attention:
+        current_student = attention_student_adaptation(current_student, n_submodels)
         monitoring_metric = 'val_loss'
 
     # Create optimizer.
@@ -98,62 +112,11 @@ def knowledge_transfer(current_student: Model, method: Method, loss: LossType) -
         tmp_weights_path = join(gettempdir(), next(_get_candidate_names()) + '.h5')
 
     callbacks_list = init_callbacks(monitoring_metric, lr_patience, lr_decay, lr_min, early_stopping_patience,
-                                    verbosity, tmp_weights_path)
+                                    verbosity, tmp_weights_path, attention)
 
     # Train student.
-    if attention:
-        history = History()
-        best_student = copy_model(current_student, optimizer=optimizer, loss=loss, metrics=metrics,
-                                  loss_weights=weights)
-        progressbar_epochs = trange(epochs, unit='epoch')
-
-        for epoch in progressbar_epochs:
-            tmp_history = []
-            best_student_idx = 0
-            best_result = 0
-            n_models = y_train_adapted.shape[1]
-            progressbar_submodels = trange(n_models, desc='Submodel training', unit='submodel', leave=False)
-
-            for model_idx in progressbar_submodels:
-                # TODO replace unnecessary loop of serial training of the submodels and convert it to parallel,
-                #  by changing the student's outputs to an output for each model
-                #  and creating a loss function which chooses the best output, by means of a loss metric
-                #  and updates all the weights of the submodels output layers
-                #  with the weights of the best submodel's layer.
-                # Adapt the labels.
-                if method == Method.PKT_PLUS_DISTILLATION:
-                    y_train_submodel = [y_train_adapted[:, model_idx], y_train_adapted[:, model_idx]]
-                else:
-                    y_train_submodel = y_train_adapted[:, model_idx]
-
-                candidate_student = copy_model(best_student, optimizer=optimizer, loss=loss, metrics=metrics,
-                                               loss_weights=weights)
-                tmp_history.append(candidate_student.fit(x_train, y_train_submodel,
-                                                         batch_size=batch_size, epochs=1, verbose=0,
-                                                         validation_data=(x_val, y_val_adapted)))
-                result = tmp_history[model_idx].history['val_loss'][0]
-                if result < best_result or model_idx == 0:
-                    best_result = result
-                    best_student_idx = model_idx
-                    best_student = copy_model(candidate_student, optimizer=optimizer, loss=loss, metrics=metrics,
-                                              loss_weights=weights)
-                    progressbar_epochs.set_description(desc='Current loss {:.4f}'.format(best_result))
-
-            # Update history object.
-            if epoch:
-                history.epoch.append(epoch)
-                for key, value in tmp_history[best_student_idx].history.items():
-                    history.history.setdefault(key, []).append(value[0])
-                history.model = tmp_history[best_student_idx].model
-                history.params = tmp_history[best_student_idx].params
-            else:
-                history = tmp_history[best_student_idx]
-
-        # Set student with the best trained.
-        current_student = best_student
-    else:
-        history = current_student.fit(x_train, y_train_adapted, batch_size=batch_size, callbacks=callbacks_list,
-                                      epochs=epochs, validation_data=(x_val, y_val_adapted), verbose=verbosity)
+    history = current_student.fit(x_train, y_train_adapted, batch_size=batch_size, callbacks=callbacks_list,
+                                  epochs=epochs, validation_data=(x_val, y_val_adapted), verbose=verbosity)
 
     if exists(tmp_weights_path):
         # Load best weights and delete the temp file.
@@ -161,6 +124,8 @@ def knowledge_transfer(current_student: Model, method: Method, loss: LossType) -
         remove(tmp_weights_path)
 
     # Rewind student to its normal state, if necessary.
+    if attention:
+        current_student = attention_student_rewind(current_student, optimizer=optimizer, loss=loss[0], metrics=metrics)
     if method == Method.DISTILLATION:
         current_student = kd_student_rewind(current_student)
     elif method == Method.PKT_PLUS_DISTILLATION:
@@ -204,7 +169,7 @@ def evaluate_results(results: list) -> None:
 
     # Plot training information.
     save_folder = out_folder if save_results else None
-    plot_results(results, epochs, save_folder)
+    plot_results(results, epochs, save_folder, attention)
 
     # Log results.
     log_results(results)
@@ -212,7 +177,8 @@ def evaluate_results(results: list) -> None:
 
 def run_kt_methods() -> None:
     """ Runs all the available KT methods. """
-    methods = generate_appropriate_methods(kt_methods, temperature, kd_lambda_supervised, pkt_lambda_supervised)
+    methods = generate_appropriate_methods(kt_methods, temperature, kd_lambda_supervised, pkt_lambda_supervised,
+                                           n_submodels)
     results = []
 
     for method in methods:
@@ -309,28 +275,38 @@ if __name__ == '__main__':
     x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.3, random_state=0)
 
     # Adapt for Attention KT framework if needed.
+    n_submodels = 0
     if attention:
         # Adapt for attention framework.
         kt_logging.info('Preparing Attention KT framework...')
-        attention_teacher = teacher_adaptation(teacher)
+        attention_teacher, n_submodels = attention_teacher_adaptation(teacher)
 
         # Get attention teacher's outputs.
         kt_logging.info('Getting teacher\'s predictions...')
         y_teacher_train = attention_teacher.predict(x_train, evaluation_batch_size, verbosity)
+        y_teacher_val = attention_teacher.predict(x_val, evaluation_batch_size, verbosity)
 
-        # Concatenate train labels as many times as the number of sub-teachers in the teacher model.
-        y_train_concat = concatenate([y_train[:, newaxis] for _ in range(y_teacher_train.shape[1])], axis=1)
+        # Repeat labels as many times as the number of sub-teachers in the teacher model.
+        y_train_list = [y_train for _ in range(n_submodels)]
+        y_val_list = [y_val for _ in range(n_submodels)]
+        y_teacher_train = [y_teacher_train[:, i] for i in range(n_submodels)]
+        y_teacher_val = [y_teacher_val[:, i] for i in range(n_submodels)]
+
         # Concatenate teacher's outputs with true labels.
-        y_train_concat = concatenate([y_train_concat, y_teacher_train], axis=2)
+        y_train_concat = concatenate([y_train_list, y_teacher_train], axis=2)
+        y_val_concat = concatenate([y_val_list, y_teacher_val], axis=2)
+
+        # Repeat concatenated labels as many times as the number of sub-teachers in the teacher model.
+        y_train_concat = [y_train_concat[i] for i in range(n_submodels)]
+        y_val_concat = [y_val_concat[i] for i in range(n_submodels)]
     else:
         # Get teacher's outputs.
         kt_logging.info('Getting teacher\'s predictions...')
         y_teacher_train = teacher.predict(x_train, evaluation_batch_size, verbosity)
+        y_teacher_val = teacher.predict(x_val, evaluation_batch_size, verbosity)
         # Concatenate teacher's outputs with true labels.
         y_train_concat = concatenate([y_train, y_teacher_train], axis=1)
-
-    y_teacher_val = teacher.predict(x_val, evaluation_batch_size, verbosity)
-    y_val_concat = concatenate([y_val, y_teacher_val], axis=1)
+        y_val_concat = concatenate([y_val, y_teacher_val], axis=1)
 
     # Run kt.
     kt_logging.info('Starting KT method(s)...')

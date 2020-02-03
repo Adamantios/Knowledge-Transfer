@@ -82,7 +82,7 @@ def kd_student_rewind(model: Model) -> Model:
     return model
 
 
-def _generate_pkt_outputs(output_shape, intermediate_outputs) -> Tensor:
+def _generate_pkt_outputs(output_shape: int, intermediate_outputs: Tensor) -> Tensor:
     """
     Generates the outputs for the pkt model.
 
@@ -112,26 +112,15 @@ def pkt_plus_kd_student_adaptation(model: Model, temperature: float) -> Model:
     model = kd_student_adaptation(model, temperature)
     output_shape = model.output_shape[1]
 
-    if 'attention' in model.name:
-        # Get student before attention adaptation.
-        student = model.layers[2]
-        # Get intermediate outputs from student (4th layer from the end).
-        intermediate_outputs = student.layers[-4].output
-        # Generate pkt outputs and model.
-        pkt_outputs = _generate_pkt_outputs(output_shape, intermediate_outputs)
-        pkt_model = Model(student.input, pkt_outputs, name='pkt_model')
-        # Generate PKT + KD model.
-        pkt_plus_kd_model = Model(model.input, [model.output, pkt_model(model.input)], name=model.name)
-    else:
-        # Get an intermediate layer (6th layer from the end).
-        intermediate_layer = model.layers[-6]
-        # Get intermediate outputs from intermediate layer.
-        intermediate_outputs = intermediate_layer.output
-        # Generate pkt outputs and model.
-        pkt_outputs = _generate_pkt_outputs(output_shape, intermediate_outputs)
-        pkt_model = Model(model.input, pkt_outputs, name='pkt_model')
-        # Generate PKT + KD model.
-        pkt_plus_kd_model = Model(model.input, [model.output, pkt_model(model.input)], name=model.name)
+    # Get an intermediate layer (6th layer from the end).
+    intermediate_layer = model.layers[-6]
+    # Get intermediate outputs from intermediate layer.
+    intermediate_outputs = intermediate_layer.output
+    # Generate pkt outputs and model.
+    pkt_outputs = _generate_pkt_outputs(output_shape, intermediate_outputs)
+    pkt_model = Model(model.input, pkt_outputs, name='pkt_model')
+    # Generate PKT + KD model.
+    pkt_plus_kd_model = Model(model.input, [model.output, pkt_model(model.input)], name=model.name)
 
     return pkt_plus_kd_model
 
@@ -144,7 +133,7 @@ def pkt_plus_kd_rewind(model: Model) -> Model:
     :return: the normal student Model.
     """
     # Get things we will need later.
-    optimizer, loss, metrics = model.optimizer, model.loss[0], model.metrics
+    optimizer, loss, metrics = model.optimizer, model.loss_functions[0], model.metrics
 
     # Get normal softmax probabilities only.
     outputs = model.layers[-4].output
