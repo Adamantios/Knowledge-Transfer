@@ -6,13 +6,15 @@ import matplotlib.pyplot as plt
 from numpy import asarray
 
 
-def plot_results(results: List[Dict], epochs: int, save_folder: Optional[str], selective_learning: bool) -> None:
+def plot_results(results: List[Dict], epochs: int, save_folder: Optional[str], results_name_prefix: str,
+                 selective_learning: bool) -> None:
     """
     Plots the KT results.
 
     :param results: the results for each one of the KT method applied.
     :param epochs: the number of epochs the experiment ran for.
     :param save_folder: the folder in which the plots will be saved.
+    :param results_name_prefix: a prefix for the results name.
     :param selective_learning: Flag which indicates if selective_learning framework has been used.
     """
     # Plot every metric result for every KT method.
@@ -32,7 +34,8 @@ def plot_results(results: List[Dict], epochs: int, save_folder: Optional[str], s
                     plt.show()
 
                     if save_folder is not None:
-                        filepath = join(save_folder, result['method'] + '_' + metric + '_vs_epoch' + '.png')
+                        filepath = join(save_folder, '{}{}_{}_vs_epoch.png'
+                                        .format(results_name_prefix, result['method'], metric))
                         fig.savefig(filepath)
 
     # Plot KT methods comparison for each metric.
@@ -83,5 +86,6 @@ def plot_results(results: List[Dict], epochs: int, save_folder: Optional[str], s
             ax.legend(loc='best', fontsize='large')
             plt.show()
             if save_folder is not None:
-                filepath = join(save_folder, 'KT_Methods_Comparison_' + metric + '_vs_epoch' + '.png')
+                filepath = join(save_folder, '{}KT_Methods_Comparison_{}_vs_epoch.png'
+                                .format(results_name_prefix, metric))
                 fig.savefig(filepath)

@@ -179,20 +179,21 @@ def create_path(filepath: str, base: bool = False) -> None:
         makedirs(directory)
 
 
-def save_students(save_students_mode: str, results: list, out_folder: str) -> None:
+def save_students(save_students_mode: str, results: list, out_folder: str, results_name_prefix: str) -> None:
     """
     Saves the student network(s).
 
     :param save_students_mode: the save mode.
     :param results: the KT results.
     :param out_folder: the folder in which the student networks will be saved.
+    :param results_name_prefix: a prefix for the results name.
     """
     # Get project logger.
     kt_logging = logging.getLogger('KT')
 
     if save_students_mode == 'all':
         for result in results:
-            model_name = join(out_folder, result['method'] + '_model.h5')
+            model_name = join(out_folder, '{}{}_model.h5'.format(results_name_prefix, result['method']))
             save_model(result['network'], model_name)
             kt_logging.info('Student network has been saved as {}.'.format(model_name))
 
@@ -207,7 +208,7 @@ def save_students(save_students_mode: str, results: list, out_folder: str) -> No
                     best = accuracy
                     best_model = result['network']
 
-        model_name = join(out_folder, 'best_model.h5')
+        model_name = join(out_folder, '{}best_model.h5'.format(results_name_prefix))
 
         if best_model is not None:
             save_model(best_model, model_name)

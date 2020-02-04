@@ -170,7 +170,7 @@ def evaluate_results(results: list) -> None:
 
     # Plot training information.
     save_folder = out_folder if save_results else None
-    plot_results(results, epochs, save_folder, selective_learning)
+    plot_results(results, epochs, save_folder, results_name_prefix, selective_learning)
 
     # Log results.
     log_results(results)
@@ -208,11 +208,11 @@ def run_kt_methods() -> None:
     evaluate_results(results)
 
     kt_logging.info('Saving student network(s)...')
-    save_students(save_students_mode, results[:-1], out_folder)
+    save_students(save_students_mode, results[:-1], out_folder, results_name_prefix)
 
     if save_results:
         kt_logging.info('Saving results...')
-        save_res(results, join(out_folder, results_name_prefix + '_results.pkl'))
+        save_res(results, join(out_folder, results_name_prefix + 'results.pkl'))
 
 
 if __name__ == '__main__':
@@ -232,7 +232,7 @@ if __name__ == '__main__':
     use_best_model: bool = not args.use_final_model
     save_students_mode: str = args.save_students
     save_results: bool = not args.omit_results
-    results_name_prefix: str = args.results_name_prefix
+    results_name_prefix: str = args.results_name_prefix + '_' if args.results_name_prefix else args.results_name_prefix
     out_folder: str = args.out_folder
     debug: bool = args.debug
     optimizer_name: str = args.optimizer
@@ -258,7 +258,7 @@ if __name__ == '__main__':
     create_path(out_folder)
 
     # Set logger up.
-    kt_logger = KTLogger(join(out_folder, results_name_prefix + '_output.log'))
+    kt_logger = KTLogger(join(out_folder, results_name_prefix + 'output.log'))
     kt_logger.setup_logger(debug, save_results)
     kt_logging = logging.getLogger('KT')
     kt_logging.info('\n---------------------------------------------------------------------------------------------\n')
