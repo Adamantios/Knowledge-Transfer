@@ -122,3 +122,5 @@ def create_parser() -> ArgumentParser:
     parser.add_argument('--debug', default=DEBUG, required=False, action='store_true',
                         help='Whether debug mode should be enabled (default %(default)s).')
     return parser
+
+# TODO use Hydra (https://hydra.cc/) instead.
