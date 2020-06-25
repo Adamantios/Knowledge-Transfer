@@ -1,5 +1,5 @@
 from tensorflow import zeros_like, stack
-from tensorflow.python.keras.engine import Layer, InputSpec
+from tensorflow.python.keras.engine.base_layer import InputSpec, Layer
 from tensorflow.python.keras.layers.merge import _Merge
 
 

@@ -1,20 +1,23 @@
 import logging
-from os import remove
+from os import remove, environ
 from os.path import join, exists
 from tempfile import gettempdir, _get_candidate_names
 from typing import Tuple, List, Union
 
 from numpy import concatenate
+from numpy.random import seed as np_seed
+from random import seed as rn_seed, random
 from sklearn.metrics import accuracy_score, log_loss
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
+from tensorflow.python import set_random_seed, Session, get_default_graph, ConfigProto
 from tensorflow.python.keras import Model
+from tensorflow.python.keras.backend import set_session, clear_session
 from tensorflow.python.keras.callbacks import History
 from tensorflow.python.keras.losses import categorical_crossentropy, mse
 from tensorflow.python.keras.metrics import categorical_accuracy
-from tensorflow.python.keras.models import clone_model
-from tensorflow.python.keras.saving import load_model
-from tensorflow.python.keras.utils import to_categorical
+from tensorflow.python.keras.models import clone_model, load_model
+from tensorflow.python.keras.utils.np_utils import to_categorical
 
 from core.adaptation import Method, kt_metric, kd_student_adaptation, kd_student_rewind, \
     pkt_plus_kd_student_adaptation, pkt_plus_kd_rewind
@@ -33,6 +36,18 @@ def check_args() -> None:
     """ Checks the input arguments. """
     if clip_norm is not None and clip_value is not None:
         raise ValueError('You cannot set both clip norm and clip value.')
+
+
+def make_results_reproducible() -> None:
+    """ Makes results reproducible. """
+    environ['TF_DETERMINISTIC_OPS'] = '1'
+    environ['PYTHONHASHSEED'] = str(seed)
+    np_seed(seed)
+    rn_seed(seed)
+    session_conf = ConfigProto(intra_op_parallelism_threads=1, inter_op_parallelism_threads=1)
+    set_random_seed(seed)
+    sess = Session(graph=get_default_graph(), config=session_conf)
+    set_session(sess)
 
 
 def generate_supervised_metrics(method: Method) -> List:
@@ -252,7 +267,13 @@ if __name__ == '__main__':
     evaluation_batch_size: int = args.evaluation_batch_size
     epochs: int = args.epochs
     verbosity: int = args.verbosity
+    seed = args.seed
     check_args()
+
+    if seed >= 0:
+        make_results_reproducible()
+    else:
+        seed = int(random())
 
     # Create out folder path.
     create_path(out_folder)
@@ -318,3 +339,5 @@ if __name__ == '__main__':
 
     # Close logger.
     kt_logger.close_logger()
+    # Clear session.
+    clear_session()

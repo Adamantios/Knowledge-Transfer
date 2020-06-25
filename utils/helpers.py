@@ -8,7 +8,7 @@ from typing import Union, Tuple, Dict, List
 from numpy import ndarray, empty, inf
 from tensorflow.python.keras.callbacks import ReduceLROnPlateau, EarlyStopping, Callback, ModelCheckpoint
 from tensorflow.python.keras.optimizers import adam, rmsprop, sgd, adagrad, adadelta, adamax
-from tensorflow.python.keras.saving import save_model
+from tensorflow.python.keras.models import save_model
 from tensorflow.python.keras.utils.layer_utils import count_params
 from tensorflow_datasets import load, as_numpy
 

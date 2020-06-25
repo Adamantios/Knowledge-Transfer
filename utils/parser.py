@@ -34,6 +34,7 @@ EVAL_BATCH_SIZE = 128
 EPOCHS = 125
 VERBOSITY = 1
 DEBUG = False
+SEED = 0
 
 
 # ------------------------------------------------------------------------------------------------
@@ -121,6 +122,9 @@ def create_parser() -> ArgumentParser:
                         help='The verbosity for the optimization procedure (default %(default)s).')
     parser.add_argument('--debug', default=DEBUG, required=False, action='store_true',
                         help='Whether debug mode should be enabled (default %(default)s).')
+    parser.add_argument('-seed', '--seed', type=int, default=SEED, required=False,
+                        help='The seed for all the random operations. Pass a negative number, '
+                             'in order to have non-deterministic behavior (default %(default)s).')
     return parser
 
 # TODO use Hydra (https://hydra.cc/) instead.
