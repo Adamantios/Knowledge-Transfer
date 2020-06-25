@@ -26,7 +26,8 @@ def plot_results(results: List[Dict], epochs: int, save_folder: Optional[str], r
                 # Plot only validation metric results.
                 if metric.startswith('val_'):
                     # Create subplot for current metric.
-                    fig, ax = plt.subplots(figsize=(12, 10))
+                    fig, ax = plt.subplots()
+                    fig.set_dpi(300)
                     ax.plot(history)
                     ax.set_title(result['method'], fontsize='x-large')
                     ax.set_xlabel('epoch', fontsize='large')
@@ -51,7 +52,8 @@ def plot_results(results: List[Dict], epochs: int, save_folder: Optional[str], r
         # For every metric.
         for i, metric in enumerate(['accuracy', 'crossentropy']):
             # Create subplot for overall KT methods comparison for the current metric.
-            fig, ax = plt.subplots(figsize=(12, 10))
+            fig, ax = plt.subplots()
+            fig.set_dpi(300)
             ax.set_title('KT Methods Comparison', fontsize='x-large')
             ax.set_xlabel('epoch', fontsize='large')
             ax.set_ylabel(metric, fontsize='large')
