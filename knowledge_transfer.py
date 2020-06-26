@@ -1,7 +1,7 @@
 import logging
 from os import remove, environ
 from os.path import join, exists
-from tempfile import gettempdir, _get_candidate_names
+from tempfile import gettempdir, mktemp
 from typing import Tuple, List, Union
 
 from numpy import concatenate
@@ -124,7 +124,7 @@ def knowledge_transfer(current_student: Model, method: Method, loss: Union[LossT
     # Create a temp file, in order to save the model, if needed.
     tmp_weights_path = None
     if use_best_model:
-        tmp_weights_path = join(gettempdir(), next(_get_candidate_names()) + '.h5')
+        tmp_weights_path = join(gettempdir(), next(mktemp()) + '.h5')
 
     callbacks_list = init_callbacks(monitoring_metric, lr_patience, lr_decay, lr_min, early_stopping_patience,
                                     verbosity, tmp_weights_path, selective_learning)
