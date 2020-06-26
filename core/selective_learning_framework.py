@@ -1,7 +1,7 @@
 from typing import Tuple
 
 from tensorflow.python.keras import Model
-from tensorflow.python.keras.layers import Concatenate, Activation
+from tensorflow.keras.layers import Concatenate, Activation
 
 from utils.tools import ZerosLike, Stack
 
