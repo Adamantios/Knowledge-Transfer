@@ -7,7 +7,7 @@ from typing import Union, Tuple, Dict, List
 
 from numpy import ndarray, empty, inf
 from tensorflow.python.keras.callbacks import ReduceLROnPlateau, EarlyStopping, Callback, ModelCheckpoint
-from tensorflow.python.keras.optimizers import adam, rmsprop, sgd, adagrad, adadelta, adamax
+from tensorflow.keras.optimizers import Adam, RMSprop, SGD, Adagrad, Adadelta, Adamax
 from tensorflow.python.keras.models import save_model
 from tensorflow.python.keras.utils.layer_utils import count_params
 from tensorflow_datasets import load, as_numpy
@@ -15,7 +15,7 @@ from tensorflow_datasets import load, as_numpy
 from core.adaptation import Method
 from core.losses import distillation_loss, pkt_loss
 
-OptimizerType = Union[adam, rmsprop, sgd, adagrad, adadelta, adamax]
+OptimizerType = Union[Adam, RMSprop, SGD, Adagrad, Adadelta, Adamax]
 
 
 def load_data(dataset: str) -> Tuple[Tuple[ndarray, ndarray], Tuple[ndarray, ndarray], int]:
@@ -77,17 +77,17 @@ def initialize_optimizer(optimizer_name: str, learning_rate: float = None, decay
     :return: the optimizer.
     """
     if optimizer_name == 'adam':
-        opt = adam(lr=learning_rate, beta_1=beta1, beta_2=beta2, decay=decay)
+        opt = Adam(lr=learning_rate, beta_1=beta1, beta_2=beta2, decay=decay)
     elif optimizer_name == 'rmsprop':
-        opt = rmsprop(lr=learning_rate, rho=rho, decay=decay)
+        opt = RMSprop(lr=learning_rate, rho=rho, decay=decay)
     elif optimizer_name == 'sgd':
-        opt = sgd(lr=learning_rate, momentum=momentum, decay=decay)
+        opt = SGD(lr=learning_rate, momentum=momentum, decay=decay)
     elif optimizer_name == 'adagrad':
-        opt = adagrad(lr=learning_rate, decay=decay)
+        opt = Adagrad(lr=learning_rate, decay=decay)
     elif optimizer_name == 'adadelta':
-        opt = adadelta(lr=learning_rate, rho=rho, decay=decay)
+        opt = Adadelta(lr=learning_rate, rho=rho, decay=decay)
     elif optimizer_name == 'adamax':
-        opt = adamax(lr=learning_rate, beta_1=beta1, beta_2=beta2, decay=decay)
+        opt = Adamax(lr=learning_rate, beta_1=beta1, beta_2=beta2, decay=decay)
     else:
         raise ValueError('An unexpected optimizer name has been encountered.')
 
