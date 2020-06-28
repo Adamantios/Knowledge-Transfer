@@ -199,3 +199,10 @@ Teacher:
 
 ### Comparison
 ![Methods Comparison](https://github.com/Adamantios/Knowledge-Transfer/blob/master/examples/SL_strong_KT_Methods_Comparison_accuracy_vs_epoch.png?raw=true)
+
+### Useful output files
+Some useful files (unless otherwise specified) are saved in the chosen out folder destination. 
+These include:
+- the final student(s) weights
+- the student model(s) (in `keras` format)
+- all the methods resutls in a pickle file, which also contains all the training histories
