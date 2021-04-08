@@ -6,7 +6,7 @@ Multiple methods' implementations to transfer the knowledge between Neural Netwo
 
 # Where it was used
 - My diploma thesis: [**Lightweight Deep Learning For Embedded Intelligence**](https://github.com/Adamantios/AI-MSc-Thesis)
-- PRLetters Journal Publcation: **Improving Knowledge Distillation using Unified Ensembles of Specialized Teachers**
+- PRLetters Journal Publcation: [**Improving knowledge distillation using unified ensembles of specialized teachers**](https://authors.elsevier.com/a/1crJf_3qHiUPK5)
 
 # Usage
 ```
