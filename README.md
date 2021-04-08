@@ -3,7 +3,7 @@ Multiple methods' implementations to transfer the knowledge between Neural Netwo
 - Built with **Python 3.8** and **Tensorflow 2.2**.
 - Implements **Knowledge Distillation (KD)**, **Probabilistic Knowledge Transfer (PKT)** and **KD + PKT**.  
 - Includes an expirimental method implementation for *student selective learning*.
-- The [**USTE(Unified Specialized Teachers Ensemble)**](https://authors.elsevier.com/a/1crJf_3qHiUPK5) method can be used as an input, which is useful for transferring the knowledge efficiently to a smaller network. For more information, see: [Knowledge Transfer](https://github.com/Adamantios/NN-Train).
+- The [**USTE(Unified Specialized Teachers Ensemble)**](https://authors.elsevier.com/a/1crJf_3qHiUPK5) method can be used as an input, which is useful for transferring the knowledge efficiently to a smaller network. For more information on how to create and train USTE, see: [NN Train](https://github.com/Adamantios/NN-Train).
 
 # Where it was used
 - My diploma thesis: [**Lightweight Deep Learning For Embedded Intelligence**](https://github.com/Adamantios/AI-MSc-Thesis)
